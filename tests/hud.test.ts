@@ -97,6 +97,22 @@ describe('reading the HUD', () => {
     });
   }, 120000);
 
+  it('day 11, ranked (lives shown as skulls), Legendary chest', async () => {
+    const h = await read(screen('hud3', 1920));
+    expect(h).toMatchObject({
+      day: 11,
+      trophies: [6, 10],
+      lives: [2, 10],
+      gold: 141,
+      income: 75,
+      level: 5,
+      xp: [20, 68],
+      luck: 5,
+      chest: 'Legendary',
+      hp: [5954, 5954],
+    });
+  }, 120000);
+
   it('knows the perk from its picture', () => {
     const perks = PERKS.map((p) => makeTemplate(p.id, readPng('shared/public/img/' + slug(p.name) + '.png')));
     const at = placeOnScreen({});

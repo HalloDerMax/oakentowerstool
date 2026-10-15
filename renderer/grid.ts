@@ -81,11 +81,11 @@ export function snapTower(img: Img, scale: number): Snap | null {
   return { cells, quality };
 }
 
-/** the part of a cell the item sits in: without the frame (and its sparkles), the signs at the top (cooldown,
- * charges) and the star at the bottom */
+/** the part of a cell the item sits in: without the frame and the signs at the top (cooldown, charges). Big items
+ * (a wrench) fill almost the whole cell, so only a thin border is left out. */
 export const innerCell = (c: { x: number; y: number; w: number; h: number }) => ({
-  x: c.x + c.w * 0.1,
-  y: c.y + c.h * 0.17,
-  w: c.w * 0.8,
-  h: c.h * 0.69,
+  x: c.x + c.w * 0.05,
+  y: c.y + c.h * 0.1,
+  w: c.w * 0.9,
+  h: c.h * 0.84,
 });

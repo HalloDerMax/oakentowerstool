@@ -53,6 +53,8 @@ import {
   PICK_BOXES,
   layoutWith,
   REF_CELL0,
+  gameArea,
+  REF_H,
   PERK_BOX,
   placeOnScreen,
   type HudKey,
@@ -347,8 +349,12 @@ let snapAt: ((b: [number, number, number, number]) => Rect) | null = null;
 function towerCutouts(area: Img | undefined, n: number, areaRect?: Rect): Img[] {
   const t = layout().tower;
   if (!area || !t) return [];
-  // picture pixels per reference pixel: the area is the tower box grown by 12 % on every side
-  const snap = snapTower(area, area.w / 1.24 / 365);
+  // picture pixels per reference pixel. First guess: the screen height (fullscreen / borderless); a calibrated box
+  // that is drawn a bit too big would lead the search to the tower's outer wooden frame
+  const fromScreen = areaRect ? ((area.h / areaRect.h) * gameArea(state?.display).h) / REF_H : 0;
+  const fromBox = area.w / 1.24 / 365;
+  let snap = fromScreen ? snapTower(area, fromScreen) : null;
+  if (!snap || snap.quality < 0.6) snap = snapTower(area, fromBox) ?? snap;
   if (snap && areaRect && snap.quality >= 0.5) {
     const c0 = snap.cells[0]!;
     const kx = c0.w / REF_CELL0.w,

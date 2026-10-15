@@ -18,6 +18,8 @@ describe('tower cells found by their frames', () => {
     ['tower2.png', ['sharpsteel', 'dragonbone', 'bone_club', 'bio_bomb', 'eclipse', 'novice_blade']],
     // a poison slot (green frame), stars, a tooltip over the right column
     ['tower3.png', ['how_to_grow', 'petal_staff', null, 'elven_shield', 'refined_spear', 'hook']],
+    // a big wrench that fills its cell, a charges counter in the cell
+    ['tower4.png', ['wrench', 'rusty_cleaver', 'honing_steel', 'bio_bomb', 'warrior_shield', 'nightquill']],
   ] as const)
     for (const [dx, dy] of [
       [0, 0],

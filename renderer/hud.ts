@@ -33,7 +33,7 @@ export const HUD_FIELDS: HudField[] = [
   { key: 'level', box: [688, 950, 100, 30], chars: 'Level:0123456789 ', ink: 'light' },
   { key: 'xp', box: [660, 977, 160, 42], chars: '0123456789/', ink: 'light' },
   { key: 'luck', box: [676, 1022, 120, 28], chars: 'Luck:0123456789% ', ink: 'light' },
-  { key: 'chest', box: [668, 1046, 150, 28], chars: 'Chest:CommonRareEpicLegendary ', ink: 'bright' },
+  { key: 'chest', box: [664, 1044, 172, 32], chars: 'Chest:CommonRareEpicLegendary ', ink: 'bright' },
   { key: 'hp', box: [80, 975, 470, 55], chars: '0123456789/', ink: 'white' },
 ];
 /** the perk picture left of the tower */
@@ -158,8 +158,9 @@ export function parseHud(text: Partial<Record<HudKey, string>>): Hud {
   if (xp && xp[0] <= xp[1]) h.xp = xp;
   const luck = num(text.luck ?? '');
   if (luck !== undefined && luck <= 100) h.luck = luck;
-  const chest = /(Common|Rare|Epic|Legendary)/.exec(text.chest ?? '');
-  if (chest) h.chest = chest[1];
+  // the end of a long word may be cut off: "Legendar" is Legendary
+  const chest = /(Common|Rare|Epic|Legend)/.exec(text.chest ?? '');
+  if (chest) h.chest = chest[1] === 'Legend' ? 'Legendary' : chest[1];
   const hp = pair(text.hp ?? '');
   if (hp && hp[0] <= hp[1]) h.hp = hp;
   return h;
