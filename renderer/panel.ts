@@ -618,7 +618,8 @@ function coach(): void {
           v && places[i] ? { id: v.id, name: nameOf(v.id), tone: v.tone, badge: v.badge, why: v.why, rect: places[i]! } : null,
         );
   // on the game only what matters for you and your build: buy, star, fits, take (nothing for the rest)
-  const shown = slots.map((x) => (x && (x.tone === 'skip' || x.tone === 'alt') ? null : x));
+  const marksOn = state?.config.marks !== false;
+  const shown = slots.map((x) => (!marksOn || (x && (x.tone === 'skip' || x.tone === 'alt')) ? null : x));
   // the labels above the game only change when something really changed
   const key = JSON.stringify(shown);
   if (key !== lastHints) {
@@ -693,6 +694,12 @@ function paintStatus(): void {
   $('#d-scan').textContent = on ? 'Pause scan' : 'Scan';
   $('#d-lock').textContent = s?.locked ? 'Locked' : 'Lock';
   $<HTMLInputElement>('#d-auto').checked = !!s?.config.autoTower;
+  const marks = s?.config.marks !== false;
+  $<HTMLInputElement>('#d-markbox').checked = marks;
+  const mb = $('#d-marks');
+  mb.classList.toggle('off', !marks);
+  mb.setAttribute('aria-pressed', String(marks));
+  mb.textContent = marks ? '◉' : '○';
   const op = Math.round((s?.config.opacity ?? 1) * 100);
   const range = $<HTMLInputElement>('#d-op');
   if (document.activeElement !== range) range.value = String(op);
@@ -875,6 +882,7 @@ function init(): void {
   document.body.className = 'ov-body d-panel';
   document.body.innerHTML =
     '<header class="d-bar"><b>Oaken Tower</b><span class="d-status" id="d-status"></span>' +
+    '<button type="button" class="d-x d-marks" id="d-marks" title="Marks on the game on / off (Ctrl+Shift+M)" aria-pressed="true">◉</button>' +
     '<button type="button" class="d-x" id="d-hide" title="Hide (Ctrl+Shift+O)">–</button><button type="button" class="d-x" id="d-quit" title="Quit">×</button></header>' +
     '<div class="d-run" id="d-run"></div>' +
     '<section class="d-move" id="d-move"></section>' +
@@ -885,6 +893,7 @@ function init(): void {
     '<button type="button" class="ov-btn" id="d-clear">Clear tower</button></div><div id="d-ov"></div></details>' +
     '<details class="d-fold"><summary>Settings</summary><div class="d-tools"><button type="button" class="ov-btn" id="d-cal" title="Ctrl+Shift+K">Calibrate</button><button type="button" class="ov-btn" id="d-scan" title="Ctrl+Shift+S">Scan</button><button type="button" class="ov-btn" id="d-lock" title="Click-through; Ctrl+Shift+L unlocks">Lock</button>' +
     '<button type="button" class="ov-btn" id="d-snap" title="Saves the screen, the cut-outs and what the coach read (on this PC) – send it to the developer when something is read wrong">Save snapshot</button>' +
+    '<label class="d-auto" title="Frames and labels on the game (Ctrl+Shift+M)"><input type="checkbox" id="d-markbox"> marks on the game</label>' +
     '<label class="d-auto" title="Take over your tower, perk, day, gold and level from the game"><input type="checkbox" id="d-auto"> auto read</label>' +
     '<label class="d-op" title="See-through: Ctrl+Shift+Up / Down"><span>◐</span><input type="range" id="d-op" min="20" max="100" step="5" aria-label="Panel opacity"><b id="d-opv"></b></label></div></details>' +
     (api ? '' : '<p class="d-note">Open this page in the Oaken Tower Overlay app to read the game.</p>');
@@ -945,6 +954,8 @@ function init(): void {
     void api?.set({ opacity: v / 100 });
   });
   $('#d-auto').addEventListener('change', (e) => void api?.set({ autoTower: (e.target as HTMLInputElement).checked }));
+  $('#d-markbox').addEventListener('change', (e) => void api?.set({ marks: (e.target as HTMLInputElement).checked }));
+  $('#d-marks').addEventListener('click', () => void api?.set({ marks: state?.config.marks === false }));
   $('#d-snap').addEventListener('click', () => void saveSnapshot());
   $('#d-hide').addEventListener('click', () => api?.hide());
   $('#d-quit').addEventListener('click', () => api?.quit());
@@ -954,6 +965,7 @@ function init(): void {
       const recal =
         JSON.stringify([s.config.shop, s.config.tower]) !== JSON.stringify([state?.config.shop, state?.config.tower]) ||
         JSON.stringify(s.display) !== JSON.stringify(state?.display);
+      const marksChanged = (state?.config.marks !== false) !== (s.config.marks !== false);
       const paused = state?.config.scan && !s.config.scan;
       state = s;
       if (recal) {
@@ -965,6 +977,7 @@ function init(): void {
         coach();
       }
       if (recal || paused) stopStream();
+      if (marksChanged) coach();
       paintStatus();
     });
     api.onPlan((m) => {

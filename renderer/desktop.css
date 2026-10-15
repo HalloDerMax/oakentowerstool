@@ -1012,3 +1012,9 @@ html:has(.h-body),
 .d-plan-h + .d-plan {
   margin-top: 4px;
 }
+.d-marks {
+  color: var(--brass-2);
+}
+.d-marks.off {
+  color: var(--dim);
+}

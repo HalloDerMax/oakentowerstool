@@ -15,6 +15,8 @@ export interface DesktopConfig {
   tower?: Rect & { cols: number; rows: number };
   scan?: boolean;
   autoTower?: boolean;
+  /** the marks (frames and labels) on the game; off = only the panel */
+  marks?: boolean;
   /** panel opacity 0.2–1 */
   opacity?: number;
 }

@@ -31,13 +31,14 @@ Das Tool ist ein **Trainer**: Es liest dein Spiel mit und sagt dir klar, was du 
 
 ![Kalibrieren](docs/screenshots/calibrate.png)
 
-| Kürzel | Wirkung |
-|---|---|
-| Strg+Umschalt+O | Ein- / ausblenden |
-| Strg+Umschalt+L | Panel sperren (Klicks gehen durch) |
-| Strg+Umschalt+K | Kalibrieren |
-| Strg+Umschalt+S | Shop-Scan an / aus |
-| Strg+Umschalt+↑ / ↓ | Panel weniger / mehr durchsichtig |
+| Kürzel              | Wirkung                                               |
+| ------------------- | ----------------------------------------------------- |
+| Strg+Umschalt+O     | Ein- / ausblenden                                     |
+| Strg+Umschalt+L     | Panel sperren (Klicks gehen durch)                    |
+| Strg+Umschalt+K     | Kalibrieren                                           |
+| Strg+Umschalt+S     | Shop-Scan an / aus                                    |
+| Strg+Umschalt+M     | Markierungen im Spiel an / aus (auch ◉ oben im Panel) |
+| Strg+Umschalt+↑ / ↓ | Panel weniger / mehr durchsichtig                     |
 
 ## Was das Tool sieht
 

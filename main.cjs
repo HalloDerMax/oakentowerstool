@@ -7,7 +7,7 @@
  * game's memory or files. Our own windows are excluded from the screenshots (content protection).
  *
  * Hotkeys: Ctrl+Shift+O show/hide · Ctrl+Shift+L lock (click-through) · Ctrl+Shift+K calibrate · Ctrl+Shift+S scan on/off
- *          Ctrl+Shift+Up/Down panel more / less see-through
+ *          Ctrl+Shift+Up/Down panel more / less see-through · Ctrl+Shift+M marks on the game on / off
  */
 const {
   app,
@@ -52,6 +52,7 @@ function loadConfig() {
   if (config.scan === undefined) config.scan = true;
   config.opacity = Math.max(0.2, Math.min(1, Number(config.opacity) || 1));
   if (config.autoTower === undefined) config.autoTower = true;
+  if (config.marks === undefined) config.marks = true;
 }
 function saveConfig() {
   try {
@@ -402,7 +403,7 @@ app.whenReady().then(() => {
   ipcMain.handle('state', () => state());
   ipcMain.handle('set', (_e, patch) => {
     // only known keys from our own pages
-    for (const k of ['shop', 'tower', 'scan', 'autoTower']) if (k in patch) config[k] = patch[k];
+    for (const k of ['shop', 'tower', 'scan', 'autoTower', 'marks']) if (k in patch) config[k] = patch[k];
     if ('opacity' in patch) {
       config.opacity = Math.max(0.2, Math.min(1, Number(patch.opacity) || 1));
       applyOpacity();
@@ -445,6 +446,12 @@ app.whenReady().then(() => {
   globalShortcut.register('CommandOrControl+Shift+K', () => (calibrating ? endCalibration() : startCalibration()));
   globalShortcut.register('CommandOrControl+Shift+Up', () => stepOpacity(0.1));
   globalShortcut.register('CommandOrControl+Shift+Down', () => stepOpacity(-0.1));
+  // marks on the game on / off
+  globalShortcut.register('CommandOrControl+Shift+M', () => {
+    config.marks = !config.marks;
+    saveConfig();
+    broadcast();
+  });
   globalShortcut.register('CommandOrControl+Shift+S', () => {
     config.scan = !config.scan;
     saveConfig();
