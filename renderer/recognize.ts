@@ -44,6 +44,8 @@ export interface IdentifyOptions {
   prev?: string | null;
   /** template size indices to try (a learnt scale); all when missing */
   sizes?: number[];
+  /** accept a clear best item a little above the limit (the tower: thin staffs, tooltips) */
+  lenient?: boolean;
 }
 
 /** the shorter side of a slot is scaled to this size */
@@ -355,6 +357,7 @@ export function identify(
   // unknown when it explains too little, or when the runner-up is just as good
   // a little above the limit is still fine when no other item comes close (thin items, a tooltip over a corner)
   const gap = (scored[1]?.score ?? Infinity) - (top?.score ?? 0);
-  if (!top || top.score > maxScore + 0.05 || (top.score > maxScore && gap < 0.08) || gap < MIN_GAP) return null;
+  const limit = opt.lenient ? maxScore + 0.05 : maxScore;
+  if (!top || top.score > limit || (top.score > maxScore && gap < 0.08) || gap < MIN_GAP) return null;
   return { id: top.id, score: top.score, next: scored[1]?.score ?? Infinity, size: top.size };
 }

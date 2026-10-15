@@ -45,7 +45,9 @@ self.onmessage = (e: MessageEvent<RecRequest>) => {
   const kind = m.group + '|' + m.kind;
   const matches = m.slots.map((s, i) => {
     if (!s) return null;
-    const r = identify(s, sets[m.group], undefined, m.facing, { prev: m.prev[i], sizes: sizesFor(kind) });
+    // the tower forgives a little (thin staffs, tooltips); the bench is strict (its wooden planks look like a shield)
+    const max = m.kind === 'bench' ? 0.75 : undefined;
+    const r = identify(s, sets[m.group], max, m.facing, { prev: m.prev[i], sizes: sizesFor(kind), lenient: m.kind === 'tower' });
     learn(kind, r);
     return r;
   });
