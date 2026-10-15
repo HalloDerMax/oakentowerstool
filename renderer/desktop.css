@@ -1,0 +1,354 @@
+/* ===== desktop app: panel ===== */
+.d-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+.d-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  background: #0d0907;
+  border-bottom: 1px solid var(--line-2);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+.d-bar b {
+  font: 700 0.9rem var(--font-serif);
+  color: var(--brass-2);
+}
+.d-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.7rem;
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.d-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6b5d50;
+}
+.d-dot.on {
+  background: var(--ok);
+  box-shadow: 0 0 6px var(--ok);
+}
+.d-x {
+  -webkit-app-region: no-drag;
+  width: 26px;
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.d-x:hover {
+  background: var(--panel-2);
+}
+.d-tools,
+.d-perk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px 0;
+}
+.d-auto {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: var(--dim);
+}
+.d-perk select {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--bg-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+}
+#d-ov {
+  flex: none;
+}
+.d-panel > .ov,
+.d-panel #d-ov {
+  overflow: visible;
+}
+.d-panel {
+  overflow-y: auto;
+}
+.d-shop {
+  padding: 0 10px 12px;
+}
+.d-shop h4 {
+  margin: 0 0 6px;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+.d-shop ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.d-shop li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-left: 3px solid #6b5d50;
+}
+.d-shop li img {
+  width: 26px;
+  height: 26px;
+}
+.d-shop li span {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.d-shop li small {
+  color: var(--dim);
+  font-size: 0.7rem;
+}
+.d-shop li em {
+  font-style: normal;
+  font-weight: 700;
+  font-size: 0.72rem;
+}
+.d-shop li.t-buy {
+  border-left-color: var(--brass-2);
+}
+.d-shop li.t-buy em {
+  color: var(--brass-2);
+}
+.d-shop li.t-good {
+  border-left-color: var(--ok);
+}
+.d-shop li.t-good em {
+  color: var(--ok);
+}
+.d-shop li.t-skip em {
+  color: var(--dim);
+}
+.d-note {
+  margin: 8px 10px;
+  color: var(--dim);
+  font-size: 0.75rem;
+}
+
+/* ===== desktop app: hints layer ===== */
+html:has(.h-body),
+.h-body {
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: transparent;
+  font: 13px/1.3 var(--font);
+  color: #fff;
+  user-select: none;
+}
+#h-root {
+  position: fixed;
+  inset: 0;
+}
+.h-body.cal #h-root {
+  background: rgba(0, 0, 0, 0.35);
+  cursor: crosshair;
+}
+.h-slot {
+  position: absolute;
+  pointer-events: none;
+}
+.h-badge {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(16, 11, 8, 0.92);
+  border: 2px solid #6b5d50;
+  font-weight: 800;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+}
+.h-badge small {
+  font-weight: 500;
+  font-size: 0.66rem;
+  opacity: 0.85;
+}
+.h-slot.t-buy .h-badge {
+  border-color: #ffd88a;
+  color: #ffd88a;
+  animation: h-pulse 1.6s ease-in-out infinite;
+}
+.h-slot.t-buy {
+  outline: 3px solid rgba(255, 216, 138, 0.85);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.h-slot.t-good .h-badge {
+  border-color: #62c27a;
+  color: #9be3ae;
+}
+.h-slot.t-skip .h-badge {
+  opacity: 0.7;
+  color: #c9bcae;
+}
+@keyframes h-pulse {
+  50% {
+    box-shadow: 0 0 18px rgba(255, 216, 138, 0.7);
+  }
+}
+.h-box {
+  position: absolute;
+  border: 2px solid #ffd88a;
+  background: rgba(255, 216, 138, 0.08);
+  pointer-events: none;
+}
+.h-box.tower {
+  border-color: #5fc4e8;
+  background: rgba(95, 196, 232, 0.08);
+}
+.h-box.live {
+  border-style: dashed;
+}
+.h-v,
+.h-h {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.55);
+}
+.h-v {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+.h-h {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+.h-help {
+  position: absolute;
+  left: 50%;
+  top: 24px;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 8px;
+  width: min(560px, 90vw);
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(16, 11, 8, 0.95);
+  border: 1px solid rgba(255, 220, 170, 0.25);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  cursor: default;
+}
+.h-help p {
+  margin: 0;
+}
+.h-help b {
+  color: #ffd88a;
+  margin-right: 6px;
+}
+.h-help small {
+  color: #b9a994;
+}
+.h-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.h-row:empty {
+  display: none;
+}
+.h-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.h-row input {
+  width: 56px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 220, 170, 0.3);
+  background: #1d1610;
+  color: #fff;
+  font: inherit;
+}
+.h-row button {
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 220, 170, 0.3);
+  background: #2a2019;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+.h-row button.pri {
+  background: linear-gradient(180deg, #e6b04e, #b07d24);
+  color: #1d1208;
+  font-weight: 700;
+  border-color: transparent;
+}
+.h-tag {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  padding: 1px 6px;
+  border-radius: 4px 4px 0 0;
+  background: #ffd88a;
+  color: #1d1208;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.h-box.tower .h-tag {
+  background: #5fc4e8;
+}
+.h-row button.x {
+  padding: 2px 8px;
+}
+.d-op {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 140px;
+  font-size: 0.72rem;
+  color: var(--dim);
+}
+.d-op input {
+  flex: 1;
+  min-width: 60px;
+  accent-color: var(--brass);
+}
+.d-op b {
+  min-width: 34px;
+  text-align: right;
+  font-weight: 600;
+}

@@ -1,0 +1,48 @@
+/* Design tokens – single set for codex + builder. The designer's final tokens (DESIGN_BRIEF §8.2) replace these values 1:1. */
+:root {
+  color-scheme: dark;
+  /* surfaces */
+  --bg: #0b090d;
+  --bg-2: #171319;
+  --panel: #1d1822;
+  --panel-2: #262030;
+  --panel-line: #3a3044;
+  --glass: rgba(32, 24, 30, 0.68);
+  --glass-2: rgba(44, 33, 40, 0.72);
+  --line: rgba(255, 236, 205, 0.09);
+  --line-2: rgba(255, 236, 205, 0.16);
+  /* text */
+  --text: #f1e8da;
+  --dim: #a99c8c;
+  /* accents */
+  --brass: #e6b04e;
+  --brass-2: #ffd88a;
+  --ember: #e4573a;
+  --ok: #62c27a;
+  --blue: #5a8fd0;
+  --purple: #8a6bd8;
+  --potion: #9fe3c8;
+  /* wood (tower) */
+  --wood-1: #4a3220;
+  --wood-2: #6a4a30;
+  --wood-3: #3a281a;
+  --wood-edge: #5c4128;
+  --wood-dark: #1a110b;
+  /* rarities (always paired with a text label or shape, never colour alone) */
+  --r-common: #a8a29a;
+  --r-rare: #5a8fd0;
+  --r-epic: #a766d6;
+  --r-legendary: #e0a030;
+  --r-forged: #d9622b;
+  --r-special: #4fb89a;
+  --r-cursed: #b83a5a;
+  /* charts: different hue + lightness + dash pattern */
+  --chart-enemy: #ffd88a;
+  --chart-player: #5fc4e8;
+  /* type */
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-serif: Georgia, 'Palatino Linotype', serif;
+  /* motion + depth */
+  --ease: cubic-bezier(0.22, 0.9, 0.28, 1);
+  --shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+}

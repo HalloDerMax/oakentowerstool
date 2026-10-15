@@ -1,0 +1,72 @@
+/* Slots (wiki "Slots" page).
+ * sim: stat + base/step/every (ASSUMPTION: the wiki only gives the growth "+x every N days"; base value assumed = step) */
+import type { SlotDef } from '../core/types';
+
+export const SLOTS: SlotDef[] = [
+  { id: 'artillery', name: 'Artillery Slot', desc: 'Ranged item here fires 2 extra bolts (10 damage).', sim: true },
+  { id: 'bleed', name: 'Bleed Slot', desc: 'This slot grants +2 Bleed.', stat: 'bleed', base: 2, step: 0, every: 1, sim: true },
+  {
+    id: 'burn',
+    name: 'Burn Slot',
+    desc: 'This slot grants +x Burn. (+2 every 4 days)',
+    stat: 'burn',
+    base: 2,
+    step: 2,
+    every: 4,
+    sim: true,
+  },
+  { id: 'crit', name: 'Crit Slot', desc: 'This slot grants +25% crit chance.', stat: 'crit', base: 25, step: 0, every: 1, sim: true },
+  {
+    id: 'damage',
+    name: 'Damage Slot',
+    desc: 'This slot grants +x damage. (+3 every 3 days)',
+    stat: 'dmg',
+    base: 3,
+    step: 3,
+    every: 3,
+    sim: true,
+  },
+  {
+    id: 'heal',
+    name: 'Heal Slot',
+    desc: 'This slot grants +x Heal. (+5 every 3 days)',
+    stat: 'heal',
+    base: 5,
+    step: 5,
+    every: 3,
+    sim: true,
+  },
+  { id: 'hex', name: 'Hex Slot', desc: 'Each day, this slot grants a random debuff permanently.', sim: true },
+  { id: 'magic', name: 'Magic Slot', desc: 'Spells and Magic items here have 25% reduced CD.', sim: true },
+  { id: 'melee', name: 'Melee Slot', desc: 'Melee item here has +25% damage.', sim: true },
+  { id: 'midas', name: "Midas' Slot", desc: "Each day, increase this item's sell value by 25.", sim: false },
+  { id: 'multicast', name: 'Multicast Slot', desc: 'This slot grants +1 Multicast.', stat: 'mc', base: 1, step: 0, every: 1, sim: true },
+  { id: 'night', name: 'Night Slot', desc: 'Start of Combat effects trigger twice here.', sim: true },
+  { id: 'pandora', name: "Pandora's Slot", desc: "Start of Day: Gain x plain copies of this item (except Pandora's Box).", sim: false },
+  {
+    id: 'poison',
+    name: 'Poison Slot',
+    desc: 'This slot grants +x Poison. (+2 every 4 days)',
+    stat: 'poison',
+    base: 2,
+    step: 2,
+    every: 4,
+    sim: true,
+  },
+  {
+    id: 'shield',
+    name: 'Shield Slot',
+    desc: 'This slot grants +x Shield. (+5 every 3 days)',
+    stat: 'block',
+    base: 5,
+    step: 5,
+    every: 3,
+    sim: true,
+  },
+  { id: 'shock', name: 'Shock Slot', desc: 'This slot grants +2 Shock.', stat: 'shock', base: 2, step: 0, every: 1, sim: true },
+  { id: 'time', name: 'Time Slot', desc: "Each day, reduce item's cooldown by 5% permanently.", sim: true },
+  { id: 'vitality', name: 'Vitality Slot', desc: 'First 3 triggers: Healing here also grants Max HP.', sim: false },
+  { id: 'wild', name: 'Wild Slot', desc: 'Each day, transform item here into a random one.', sim: false },
+];
+
+export const SLOT_BY_ID: Record<string, SlotDef> = Object.fromEntries(SLOTS.map((s) => [s.id, s]));

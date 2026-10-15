@@ -1,0 +1,54 @@
+{
+  "name": "oaken-tower-overlay",
+  "productName": "Oaken Tower Overlay",
+  "private": true,
+  "version": "0.2.0",
+  "description": "Desktop overlay for Oaken Tower: your planned build and shop tips on top of the game",
+  "main": "main.cjs",
+  "scripts": {
+    "dev": "vite --config vite.config.ts",
+    "build": "vite build --config vite.config.ts",
+    "start": "npm run build && electron .",
+    "start:dev": "cross-env OAKEN_DEV_URL=http://localhost:5318 electron .",
+    "dist": "npm run build && electron-builder --win portable --x64",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "ci": "npm run typecheck && npm test && npm run build",
+    "sync": "node scripts/sync-shared.mjs"
+  },
+  "build": {
+    "appId": "de.hallodasevent.oaken.overlay",
+    "productName": "Oaken Tower Overlay",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "app/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "build/icon.png"
+    },
+    "portable": {
+      "artifactName": "OakenTowerOverlay-${version}.exe"
+    }
+  },
+  "devDependencies": {
+    "@tesseract.js-data/eng": "^1.0.0",
+    "@types/node": "^26.6.5",
+    "cross-env": "^10.1.0",
+    "electron": "^44.7.2",
+    "electron-builder": "^26.15.3",
+    "prettier": "^3.9.10",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "tesseract.js": "^6.0.1"
+  }
+}

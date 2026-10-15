@@ -1,0 +1,205 @@
+/* Perks (wiki "Perks" page, effects updated to patch v0.6.5 from the oaken.gg wiki).
+ * sim: { slots:[{slot,day}], start:'Item Name', shockDmg:{day,n} } -> used by Builder/Simulator
+ * mdNote: where the supplied .md file says something different from the wiki */
+import type { PerkDef } from '../core/types';
+
+export const PERKS: PerkDef[] = [
+  {
+    id: 'archmage',
+    name: 'Archmage',
+    effect: 'Start with a random common Spellbook. Day 3: Gain a Magic Slot.',
+    unlock: 'Earn the 10th Trophy with only Spells or Magic items in your tower 2 times.',
+    sim: { slots: [{ slot: 'magic', day: 3 }] },
+  },
+  {
+    id: 'artillery',
+    name: 'Artillery',
+    effect: 'Start with a Regular Bow. Day 4: Gain an Artillery Slot.',
+    unlock: 'Earn the 10th Trophy with only a Regular Bow.',
+    sim: { start: 'Regular Bow', slots: [{ slot: 'artillery', day: 4 }] },
+  },
+  {
+    id: 'chosen',
+    name: 'Chosen',
+    effect: 'Start with a Heal Slot. Your healing can crit for 2x heal.',
+    unlock: 'Unlocked by default.',
+    sim: { slots: [{ slot: 'heal', day: 0 }], healCrit: true },
+  },
+  {
+    id: 'darkness',
+    name: 'Darkness',
+    effect: "Start with a Twilight's Edge. Day 7: Gain a Night Slot.",
+    unlock: 'Earn the 10th Trophy with a full Dark build 2 times.',
+    sim: { start: "Twilight's Edge", slots: [{ slot: 'night', day: 7 }] },
+  },
+  {
+    id: 'electric',
+    name: 'Electric',
+    effect: 'Start with +5 Gold. Day 3: Gain a Shock Slot and +5 Shock Damage.',
+    unlock: 'Increase your shock damage to a total of 300 in one game.',
+    sim: { slots: [{ slot: 'shock', day: 3 }], shockDmg: { day: 3, n: 5 } },
+  },
+  {
+    id: 'essential_oils',
+    name: 'Essential Oils',
+    effect: 'Day 5: Discover one of two Essences.',
+    unlock: 'Use an Essence to give an item a new tag 3 times.',
+  },
+  {
+    id: 'flash_sale',
+    name: 'Flash Sale',
+    effect: 'Start with +5 Gold. The first shop on day 3, 8 and 11 will be on sale.',
+    unlock: 'Buy 50 items on sale.',
+  },
+  {
+    id: 'foreshadowing',
+    name: 'Foreshadowing',
+    effect: 'Day 1: Discover a Legendary item to earn on day 6.',
+    unlock: 'Earn the 10th trophy with only legendary items.',
+  },
+  {
+    id: 'gambit',
+    name: 'Gambit',
+    effect: 'Day 2: Gain a random Epic item. You start with -20% HP and -15 Gold.',
+    unlock: 'Earn 10 trophies while only ever buying Epic items.',
+  },
+  {
+    id: 'gathering',
+    name: 'Gathering',
+    effect: 'Start with 3 free rerolls. You will have 3 encounter options instead of 2.',
+    unlock: 'Talk to every encounter.',
+  },
+  {
+    id: 'growth',
+    name: 'Growth',
+    effect: 'Start with a Time Slot.',
+    unlock: 'Reduce cooldowns with Dream Catcher 300 times.',
+    sim: { slots: [{ slot: 'time', day: 0 }] },
+  },
+  {
+    id: 'hex',
+    name: 'Hex',
+    effect: 'Start with a Voidspike. Day 7: Gain a Hex Slot.',
+    unlock: 'Earn the 10th Trophy with a full Arcane build 2 times.',
+    sim: { start: 'Voidspike', slots: [{ slot: 'hex', day: 7 }] },
+  },
+  { id: 'lucky', name: 'Lucky', effect: 'Start with a random 15g item. Day 3 and 8: Gain +2% luck.', unlock: 'Get a lucky roll on day 3.' },
+  {
+    id: 'mass_production',
+    name: 'Mass Production',
+    effect: 'On day 3, the first 3 shops will only contain 7 of the same item.',
+    unlock: 'Earn the 10th trophy with 3 of the same item in your tower.',
+  },
+  {
+    id: 'melee',
+    name: 'Melee',
+    effect: 'Start with a Bone Club. Day 3: Gain a Melee Slot.',
+    unlock: 'Earn the 10th Trophy with 6 Melee items 5 times.',
+    sim: { start: 'Bone Club', slots: [{ slot: 'melee', day: 3 }] },
+  },
+  {
+    id: 'merge',
+    name: 'Merge',
+    effect: 'Obtaining two 2-Star items will combine them into a 3-Star item. Only works once and from day 7+.',
+    unlock: 'Earn the 10th Trophy with a 3-star item 2 times.',
+  },
+  {
+    id: 'midas_regards',
+    name: "Midas' Regards",
+    effect: 'Start with +8 Gold. Day 4: Gain a Midas Slot.',
+    unlock: 'Pick "Random Blessing" from King Midas on day 9.',
+    sim: { slots: [{ slot: 'midas', day: 4 }] },
+  },
+  {
+    id: 'one_trick',
+    name: 'One Trick',
+    effect: 'Day 6 and 9: Discover a random item from your most owned type.',
+    unlock: 'Unlock condition not documented yet.',
+  },
+  {
+    id: 'power',
+    name: 'Power',
+    effect: 'Start with a Damage Slot and a Crit Slot.',
+    unlock: 'Deal a critical strike for 10,000 Damage.',
+    sim: {
+      slots: [
+        { slot: 'damage', day: 0 },
+        { slot: 'crit', day: 0 },
+      ],
+    },
+  },
+  {
+    id: 'random',
+    name: 'Random',
+    effect: 'Gain a random perk each game. This provides a little extra rating in ranked (+5%).',
+    unlock: 'Unlock all other perks.',
+  },
+  { id: 'rare_find', name: 'Rare Find', effect: 'Day 3: Discover a Rare item with +1 Multicast.', unlock: 'Buy 100 Rare items.' },
+  {
+    id: 'reflection',
+    name: 'Reflection',
+    effect: 'Gain a plain copy of the first item you buy. You start with -20 Gold.',
+    unlock: 'Use Mirror Elixir 3 times.',
+  },
+  {
+    id: 'refreshments',
+    name: 'Refreshments',
+    effect: 'Start with +10 Gold. Day 5 and 8: Discover a Regular Potion.',
+    unlock: 'Use 10 Regular Potions.',
+  },
+  {
+    id: 'risky_business',
+    name: 'Risky Business',
+    effect: 'Day 2: Gain a random, 1-Star Rare item. You start with -20% HP and -15 Gold.',
+    unlock: 'Earn the 10th trophy while only ever buying items from one single pack.',
+  },
+  {
+    id: 'scorch',
+    name: 'Scorch',
+    effect: 'Start with a Wildfire. Day 3: Gain a Burn Slot.',
+    unlock: 'Unlocked by default.',
+    sim: { start: 'Wildfire', slots: [{ slot: 'burn', day: 3 }] },
+  },
+  { id: 'stock', name: 'Stock', effect: 'Start with +5 Gold. The shop contains 8 items instead of 7.', unlock: 'Buy 500 items.' },
+  {
+    id: 'strike',
+    name: 'Strike',
+    effect: 'Start with a Silver Lance. Day 8: Gain a Multicast Slot.',
+    unlock: 'Have an item with 99+ multicast.',
+    sim: { start: 'Silver Lance', slots: [{ slot: 'multicast', day: 8 }] },
+  },
+  {
+    id: 'sugar_rush',
+    name: 'Sugar Rush',
+    effect: 'Start with +5 Gold. From day 4 and forward, gain a piece of Candy.',
+    unlock: 'Obtain a total of 30 candies.',
+  },
+  {
+    id: 'tempo',
+    name: 'Tempo',
+    effect: 'Start with +15 Gold.',
+    unlock: 'Unlocked by default.',
+  },
+  {
+    id: 'toxic',
+    name: 'Toxic',
+    effect: 'Start with a Refined Spear. Day 4: Gain a Poison Slot.',
+    unlock: 'Unlocked by default.',
+    sim: { start: 'Refined Spear', slots: [{ slot: 'poison', day: 4 }] },
+  },
+  {
+    id: 'treasure',
+    name: 'Treasure',
+    effect: 'When reaching level 5: Gain an Epic Chest. Chests contain 4 items instead of 3.',
+    unlock: 'Discover 50 items from Epic chests.',
+  },
+  {
+    id: 'turtle',
+    name: 'Turtle',
+    effect: 'Start with a Shield Slot. Your shielding can crit for 2x shield.',
+    unlock: 'Buy 30 shields.',
+    sim: { slots: [{ slot: 'shield', day: 0 }], shieldCrit: true },
+  },
+];
+
+export const PERK_BY_ID: Record<string, PerkDef> = Object.fromEntries(PERKS.map((p) => [p.id, p]));
