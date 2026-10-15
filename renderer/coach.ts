@@ -172,3 +172,145 @@ export function tips(o: {
   }
   return out;
 }
+
+/* ---------- one clear instruction ---------- */
+export type MoveKind = 'buy' | 'star' | 'merge' | 'swap' | 'sell' | 'roll' | 'level' | 'save' | 'wait';
+export interface Move {
+  kind: MoveKind;
+  /** the instruction, a few words ("Buy Dark Orb", "Roll", "Level up") */
+  title: string;
+  /** one sentence why */
+  detail: string;
+  /** items it is about (pictures) */
+  items: string[];
+}
+const pct = (x: number) => (x * 100).toFixed(x < 0.1 ? 1 : 0) + '%';
+const listNames = (ids: string[]) => [...new Set(ids)].map(name).join(' + ');
+
+/**
+ * What to do now, most important first: buy for your build → star copies → bench (merge, swap, sell) →
+ * buy a fitting item → roll, level or save. The first move is the instruction, the rest is "then".
+ */
+export function decide(o: {
+  tower: (string | null)[];
+  bench: string[];
+  verdicts: (Verdict | null)[];
+  path: Path | null;
+  hud: HudInfo;
+  day: number;
+  /** the shop is on screen */
+  shopOpen: boolean;
+}): Move[] {
+  const out: Move[] = [];
+  const of = (t: Tone) => o.verdicts.filter((v): v is Verdict => v?.tone === t).map((v) => v.id);
+  const buys = of('buy'),
+    stars = of('star'),
+    fits = of('fit');
+  const pName = o.path ? pathName(o.path.b) : 'your build';
+  if (buys.length)
+    out.push({
+      kind: 'buy',
+      title: 'Buy ' + listNames(buys.slice(0, 2)),
+      detail: 'Your ' + pName + ' build needs it.',
+      items: buys.slice(0, 2),
+    });
+  if (stars.length)
+    out.push({
+      kind: 'star',
+      title: 'Buy ' + listNames(stars.slice(0, 2)),
+      detail: 'A second copy merges into a star.',
+      items: stars.slice(0, 2),
+    });
+  // the bench
+  const fin = o.path ? finalIds(o.path.b) : [];
+  const full = o.tower.every(Boolean);
+  for (const id of o.bench) {
+    if (o.tower.includes(id))
+      out.push({
+        kind: 'merge',
+        title: 'Merge ' + name(id),
+        detail: 'Drop the bench copy on the one in your tower: +1 star.',
+        items: [id],
+      });
+    else if (fin.includes(id)) {
+      const weak = o.tower.find((t): t is string => !!t && !fin.includes(t));
+      out.push(
+        full
+          ? {
+              kind: 'swap',
+              title: 'Swap in ' + name(id),
+              detail: weak ? 'Replace ' + name(weak) + ': it is not part of ' + pName + '.' : 'It belongs to ' + pName + '.',
+              items: [id],
+            }
+          : { kind: 'swap', title: 'Place ' + name(id), detail: 'Put it from the bench into your tower.', items: [id] },
+      );
+    } else {
+      const pack = mainPacks([...o.tower.filter((t): t is string => !!t), ...o.bench]).find(
+        (p) => ITEM_BY_ID[id]?.pack === p || ITEM_BY_ID[id]?.pack2 === p,
+      );
+      if (!pack) out.push({ kind: 'sell', title: 'Sell ' + name(id), detail: 'Fits neither ' + pName + ' nor your packs.', items: [id] });
+    }
+  }
+  if (!buys.length && !stars.length && fits.length)
+    out.push({
+      kind: 'buy',
+      title: 'Buy ' + name(fits[0]!),
+      detail: 'Not in ' + pName + ', but a ' + (ITEM_BY_ID[fits[0]!]?.pack ?? '') + ' item like yours.',
+      items: [fits[0]!],
+    });
+  // nothing to buy (or after buying): roll, level or save
+  const { gold, level, xp } = o.hud;
+  if (o.shopOpen && gold !== undefined && level !== undefined) {
+    const rarity = wantedRarity(o.path);
+    const a = advise({
+      level,
+      gold,
+      rarity,
+      xpToNext: xp ? Math.max(0, xp[1] - xp[0]) : undefined,
+      daysLeft: Math.max(0, 16 - (o.hud.day ?? o.day)),
+    });
+    const look = o.path?.missing.length ? ' Look for ' + listNames(o.path.missing.slice(0, 3)) + '.' : '';
+    if (a.action === 'roll')
+      out.push({
+        kind: 'roll',
+        title: 'Roll',
+        detail:
+          'Nothing more for you here. ' +
+          rarity +
+          ' items: ' +
+          pct(a.pNow) +
+          ' per shop now' +
+          (a.pNext < a.pNow ? ', fewer after a level' : '') +
+          '.' +
+          look,
+        items: o.path?.missing.slice(0, 3) ?? [],
+      });
+    else if (a.action === 'level')
+      out.push({
+        kind: 'level',
+        title: 'Level up (' + a.xpGold + 'g)',
+        detail:
+          rarity +
+          ' items get likelier: ' +
+          pct(a.pNow) +
+          ' → ' +
+          pct(a.pNext) +
+          ' per shop' +
+          (a.incomeBack ? ', and +' + a.incomeBack + 'g income back' : '') +
+          '.',
+        items: [],
+      });
+    else
+      out.push({ kind: 'save', title: 'Save your gold', detail: 'Not enough gold to roll or level well. Fight and come back.', items: [] });
+  } else if (!o.shopOpen && !out.length)
+    out.push({
+      kind: 'wait',
+      title: o.path ? 'Next: ' + listNames(o.path.missing.slice(0, 2)) : 'Open a shop',
+      detail: o.path
+        ? 'Your ' + pName + ' build still needs these. The coach answers when a shop is open.'
+        : 'The coach answers when a shop is open.',
+      items: o.path?.missing.slice(0, 2) ?? [],
+    });
+  else if (o.shopOpen && !out.length) out.push({ kind: 'roll', title: 'Roll', detail: 'Nothing here for ' + pName + '.', items: [] });
+  return out;
+}

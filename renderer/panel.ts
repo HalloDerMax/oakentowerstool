@@ -26,7 +26,7 @@ import { runGrow, runSuggest } from '../shared/src/ui/simclient';
 import type { OurBuild } from '../shared/src/ui/buildguide';
 import type { DesktopApi, DesktopState, HintSlot, Rect } from './bridge';
 import { grab, stop as stopStream } from './capture';
-import { choosePath, judgeShop, mainPacks, pathName, paths, tips, type HudInfo, type Path, type Verdict } from './coach';
+import { choosePath, decide, judgeShop, mainPacks, pathName, paths, type HudInfo, type Move, type Path, type Verdict } from './coach';
 import { benchWindows, HUD_FIELDS, parseHud, PERK_BOX, placeOnScreen, type HudKey } from './hud';
 import type { Facing, Img, Match } from './recognize';
 import type { Group, RecRequest, RecResponse } from './recognize.worker';
@@ -409,16 +409,29 @@ function coach(): void {
   paintCoach();
 }
 
-/* ---------- page ---------- */
+/* ---------- page ----------
+ * Top to bottom: what the game shows (one line) · THE instruction (fixed size, so nothing below jumps) ·
+ * the shop · your path · tower & planner and settings folded away.
+ * A part is only redrawn when its content really changed.
+ */
+const drawn = new WeakMap<HTMLElement, string>();
+function put(el: HTMLElement, html: string): void {
+  if (drawn.get(el) === html) return;
+  drawn.set(el, html);
+  el.innerHTML = html;
+}
+
 function paintStatus(): void {
   const s = state;
   const on = !!s?.config.scan;
-  $('#d-status').innerHTML =
+  put(
+    $('#d-status'),
     '<i class="d-dot ' +
-    (on && (s?.config.shop?.length || s?.config.tower) ? 'on' : '') +
-    '"></i><span>' +
-    esc(on ? scanMsg : 'Scan paused') +
-    '</span>';
+      (on && (s?.config.shop?.length || s?.config.tower) ? 'on' : '') +
+      '"></i><span>' +
+      esc(on ? scanMsg : 'Scan paused') +
+      '</span>',
+  );
   $('#d-scan').textContent = on ? 'Pause scan' : 'Scan';
   $('#d-lock').textContent = s?.locked ? 'Locked' : 'Lock';
   $<HTMLInputElement>('#d-auto').checked = !!s?.config.autoTower;
@@ -428,85 +441,138 @@ function paintStatus(): void {
   $('#d-opv').textContent = op + '%';
 }
 
-/** what the game shows: lives, trophies, gold, level, luck, next chest, shop odds */
+/** what the game shows, in one line: day, lives, gold, level, luck, next chest */
 function paintRun(): void {
   const h = hud;
   const chip = (label: string, v: string | undefined, cls = '') =>
-    v === undefined ? '' : '<span class="d-chip ' + cls + '"><small>' + label + '</small><b>' + esc(v) + '</b></span>';
-  $('#d-run').innerHTML =
-    chip('Day', h.day?.toString()) +
-    chip('Lives', h.lives ? h.lives.join('/') : undefined, 'lives') +
-    chip('Trophies', h.trophies ? h.trophies.join('/') : undefined) +
-    chip('Gold', h.gold?.toString(), 'gold') +
-    chip('Level', h.level !== undefined ? h.level + (h.xp ? ' · ' + h.xp.join('/') : '') : undefined) +
-    chip('Luck', h.luck !== undefined ? h.luck + '%' : undefined) +
-    chip('Chest', h.chest, 'r-' + (h.chest ?? '')) +
-    chip('Shop', h.odds ? h.odds.join(' / ') + '%' : undefined);
+    '<span class="d-chip ' + cls + '"><small>' + label + '</small><b>' + esc(v ?? '–') + '</b></span>';
+  put(
+    $('#d-run'),
+    chip('Day', (h.day ?? plan.day).toString()) +
+      chip('Lives', h.lives ? h.lives.join('/') : undefined, 'lives') +
+      chip('Gold', h.gold?.toString(), 'gold') +
+      chip('Level', h.level !== undefined ? h.level + (h.xp ? ' · ' + h.xp[0] + '/' + h.xp[1] : '') : undefined) +
+      chip('Luck', h.luck !== undefined ? h.luck + '%' : undefined) +
+      chip('Chest', h.chest, 'r-' + (h.chest ?? '')),
+  );
 }
 
+const MOVE_ICON: Record<Move['kind'], string> = {
+  buy: '🛒',
+  star: '★',
+  merge: '⇪',
+  swap: '⇄',
+  sell: '💰',
+  roll: '⟳',
+  level: '⬆',
+  save: '⏸',
+  wait: '⏳',
+};
 function paintCoach(): void {
-  const list = tips({ tower: plan.cells.map((c) => c?.id ?? null), bench, verdicts, path, hud, day: plan.day });
-  $('#d-coach').innerHTML = list.length
-    ? '<h4>Coach</h4><ul>' +
-      list
-        .slice(0, 5)
-        .map((t, i) => '<li' + (i === 0 ? ' class="first"' : '') + '>' + esc(t) + '</li>')
-        .join('') +
-      '</ul>'
-    : '<h4>Coach</h4><p class="d-dim">Open a shop in the game, or add your items.</p>';
-  $('#d-paths').innerHTML = allPaths.length
-    ? '<h4>Your path <small>(click to follow another)</small></h4>' +
-      allPaths
-        .map(
-          (p) =>
-            '<button type="button" class="d-path' +
-            (p === path ? ' on' : '') +
-            '" data-path="' +
-            esc(p.b.id) +
-            '"><span class="d-path-h"><b>' +
-            esc(pathName(p.b)) +
-            '</b><small>' +
-            esc(p.b.packs.join(' · ') || 'any pack') +
-            (p.b.tier ? ' · tier ' + esc(p.b.tier) : '') +
-            ' · ' +
-            Math.round(p.done * 100) +
-            '% done</small></span>' +
-            (p.missing.length
-              ? '<span class="d-need"><small>needs</small>' +
-                p.missing
-                  .slice(0, 6)
-                  .map((id) => pic(id))
-                  .join('') +
-                '</span>'
-              : '') +
-            '</button>',
-        )
-        .join('')
-    : '';
-  const shopList = verdicts.filter((v): v is Verdict => !!v);
-  $('#d-shop').innerHTML = shopList.length
-    ? '<h4>Shop now</h4><ul>' +
-      shopList
-        .map(
-          (v) =>
-            '<li class="t-' +
-            v.tone +
-            '">' +
-            pic(v.id) +
-            '<span><b>' +
-            esc(nameOf(v.id)) +
-            '</b><small>' +
-            esc(v.why) +
-            '</small></span><em>' +
-            esc(v.badge) +
-            '</em></li>',
-        )
-        .join('') +
-      '</ul>' +
-      (bench.length ? '<h4>Bench</h4><p class="d-bench">' + bench.map((id) => pic(id)).join('') + '</p>' : '')
-    : bench.length
-      ? '<h4>Bench</h4><p class="d-bench">' + bench.map((id) => pic(id)).join('') + '</p>'
-      : '';
+  const moves = decide({
+    tower: plan.cells.map((c) => c?.id ?? null),
+    bench,
+    verdicts,
+    path,
+    hud,
+    day: plan.day,
+    shopOpen: shop.some(Boolean),
+  });
+  const [now, ...then] = moves;
+  put(
+    $('#d-move'),
+    now
+      ? '<div class="d-now k-' +
+          now.kind +
+          '"><span class="d-ico">' +
+          MOVE_ICON[now.kind] +
+          '</span><span class="d-what"><b>' +
+          esc(now.title) +
+          '</b><small>' +
+          esc(now.detail) +
+          '</small></span>' +
+          (now.items.length ? '<span class="d-pics">' + now.items.map((id) => pic(id)).join('') + '</span>' : '') +
+          '</div>' +
+          '<ol class="d-then">' +
+          then
+            .slice(0, 2)
+            .map((m) => '<li><span>' + MOVE_ICON[m.kind] + '</span>Then: <b>' + esc(m.title) + '</b></li>')
+            .join('') +
+          '</ol>'
+      : '',
+  );
+
+  // the shop: what matters first, the rest folded into one line
+  const list = verdicts.filter((v): v is Verdict => !!v);
+  const keep = list.filter((v) => v.tone !== 'skip');
+  const skip = list.length - keep.length;
+  put(
+    $('#d-shop'),
+    list.length
+      ? '<h4>Shop</h4><ul>' +
+          keep
+            .map(
+              (v) =>
+                '<li class="t-' +
+                v.tone +
+                '">' +
+                pic(v.id) +
+                '<span><b>' +
+                esc(nameOf(v.id)) +
+                '</b><small>' +
+                esc(v.why) +
+                '</small></span><em>' +
+                esc(v.badge) +
+                '</em></li>',
+            )
+            .join('') +
+          '</ul>' +
+          (skip ? '<p class="d-skip">' + skip + ' other' + (skip > 1 ? 's' : '') + ': skip</p>' : '') +
+          (bench.length ? '<p class="d-bench"><small>Bench</small>' + bench.map((id) => pic(id)).join('') + '</p>' : '')
+      : '<h4>Shop</h4><p class="d-skip">Closed. Open a shop in the game.</p>',
+  );
+
+  // your path, the others folded away
+  const others = allPaths.filter((p) => p !== path);
+  put(
+    $('#d-path'),
+    path
+      ? '<h4>Your path</h4><div class="d-cur"><b>' +
+          esc(pathName(path.b)) +
+          '</b><small>' +
+          Math.round(path.done * 100) +
+          '% done' +
+          (path.missing.length ? ' · needs' : '') +
+          '</small>' +
+          (path.missing.length
+            ? '<span class="d-need">' +
+              path.missing
+                .slice(0, 6)
+                .map((id) => pic(id))
+                .join('') +
+              '</span>'
+            : '') +
+          '</div>' +
+          (others.length
+            ? '<details class="d-others"><summary>Other paths (' +
+              others.length +
+              ')</summary>' +
+              others
+                .map(
+                  (p) =>
+                    '<button type="button" class="d-path" data-path="' +
+                    esc(p.b.id) +
+                    '"><b>' +
+                    esc(pathName(p.b)) +
+                    '</b><small>' +
+                    Math.round(p.done * 100) +
+                    '% done · follow this</small></button>',
+                )
+                .join('') +
+              '</details>'
+            : '')
+      : '<h4>Your path</h4><p class="d-skip">Add items (or let the coach read your tower) to see your path.</p>',
+  );
 }
 
 let refreshOverlay: () => void = () => undefined;
@@ -529,17 +595,16 @@ function init(): void {
   document.body.innerHTML =
     '<header class="d-bar"><b>Oaken Tower</b><span class="d-status" id="d-status"></span>' +
     '<button type="button" class="d-x" id="d-hide" title="Hide (Ctrl+Shift+O)">–</button><button type="button" class="d-x" id="d-quit" title="Quit">×</button></header>' +
-    '<div class="d-tools"><button type="button" class="ov-btn" id="d-cal" title="Ctrl+Shift+K">Calibrate</button><button type="button" class="ov-btn" id="d-scan" title="Ctrl+Shift+S">Scan</button><button type="button" class="ov-btn" id="d-lock" title="Click-through; Ctrl+Shift+L unlocks">Lock</button>' +
-    '<label class="d-auto" title="Take over your tower, perk, day, gold and level from the game"><input type="checkbox" id="d-auto"> auto read</label>' +
-    '<label class="d-op" title="See-through: Ctrl+Shift+Up / Down"><span>◐</span><input type="range" id="d-op" min="20" max="100" step="5" aria-label="Panel opacity"><b id="d-opv"></b></label></div>' +
     '<div class="d-run" id="d-run"></div>' +
-    '<section class="d-coach" id="d-coach"></section>' +
-    '<section class="d-paths" id="d-paths"></section>' +
+    '<section class="d-move" id="d-move"></section>' +
     '<section class="d-shop" id="d-shop"></section>' +
-    '<div class="d-perk">' +
+    '<section class="d-pathbox" id="d-path"></section>' +
+    '<details class="d-fold" id="d-more"><summary>Tower &amp; planner</summary><div class="d-perk">' +
     perkSelect() +
-    '<button type="button" class="ov-btn" id="d-clear">Clear tower</button></div>' +
-    '<div id="d-ov"></div>' +
+    '<button type="button" class="ov-btn" id="d-clear">Clear tower</button></div><div id="d-ov"></div></details>' +
+    '<details class="d-fold"><summary>Settings</summary><div class="d-tools"><button type="button" class="ov-btn" id="d-cal" title="Ctrl+Shift+K">Calibrate</button><button type="button" class="ov-btn" id="d-scan" title="Ctrl+Shift+S">Scan</button><button type="button" class="ov-btn" id="d-lock" title="Click-through; Ctrl+Shift+L unlocks">Lock</button>' +
+    '<label class="d-auto" title="Take over your tower, perk, day, gold and level from the game"><input type="checkbox" id="d-auto"> auto read</label>' +
+    '<label class="d-op" title="See-through: Ctrl+Shift+Up / Down"><span>◐</span><input type="range" id="d-op" min="20" max="100" step="5" aria-label="Panel opacity"><b id="d-opv"></b></label></div></details>' +
     (api ? '' : '<p class="d-note">Open this page in the Oaken Tower Overlay app to read the game.</p>');
 
   refreshOverlay = mountOverlay($('#d-ov'), view, {
@@ -568,7 +633,7 @@ function init(): void {
     },
   });
 
-  $('#d-paths').addEventListener('click', (e) => {
+  $('#d-path').addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('[data-path]');
     if (!b) return;
     picked = b.dataset.path!;

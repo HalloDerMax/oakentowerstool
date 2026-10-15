@@ -535,3 +535,238 @@ html:has(.h-body),
 .d-panel #ov-advice {
   display: none;
 }
+
+/* ===== coach layout (responsive: narrow = stacked, wide = shop and path side by side) ===== */
+.d-panel {
+  --pad: clamp(8px, 2.5vw, 14px);
+}
+.d-run {
+  flex-wrap: nowrap;
+  overflow: hidden;
+  padding: 8px var(--pad) 0;
+}
+.d-run .d-chip {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.d-run .d-chip b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.d-move {
+  padding: 8px var(--pad) 0;
+}
+/* the instruction keeps its size, so the parts below do not jump when it changes */
+.d-now {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 84px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(230, 176, 78, 0.2), rgba(230, 176, 78, 0.06));
+  border: 2px solid var(--brass);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+.d-now.k-roll,
+.d-now.k-wait {
+  background: linear-gradient(135deg, rgba(95, 196, 232, 0.18), rgba(95, 196, 232, 0.05));
+  border-color: #5fc4e8;
+}
+.d-now.k-level {
+  background: linear-gradient(135deg, rgba(167, 102, 214, 0.22), rgba(167, 102, 214, 0.06));
+  border-color: var(--r-epic);
+}
+.d-now.k-save,
+.d-now.k-sell {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--line-2);
+}
+.d-now.k-star,
+.d-now.k-merge,
+.d-now.k-swap {
+  background: linear-gradient(135deg, rgba(98, 194, 122, 0.2), rgba(98, 194, 122, 0.05));
+  border-color: var(--ok);
+}
+.d-ico {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 1.4rem;
+}
+.d-what {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.d-what b {
+  font: 700 clamp(1rem, 4.4vw, 1.35rem) / 1.15 var(--font-serif);
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+.d-what small {
+  color: var(--text);
+  opacity: 0.85;
+  font-size: 0.76rem;
+  line-height: 1.3;
+}
+.d-pics {
+  display: flex;
+  gap: 4px;
+}
+.d-pics img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+.d-then {
+  display: grid;
+  gap: 3px;
+  min-height: 46px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.76rem;
+  color: var(--dim);
+}
+.d-then li {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.d-then b {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.d-shop,
+.d-pathbox {
+  padding: 10px var(--pad) 0;
+  min-width: 0;
+}
+.d-shop h4,
+.d-pathbox h4 {
+  margin: 0 0 6px;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+.d-shop li {
+  min-height: 40px;
+}
+.d-shop li small {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.d-skip {
+  margin: 4px 0 0;
+  color: var(--dim);
+  font-size: 0.74rem;
+}
+.d-bench {
+  align-items: center;
+  margin-top: 6px;
+}
+.d-bench small {
+  margin-right: 6px;
+  color: var(--dim);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+.d-cur {
+  display: grid;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--brass);
+  background: rgba(230, 176, 78, 0.08);
+}
+.d-cur b {
+  font-size: 0.86rem;
+}
+.d-cur small {
+  color: var(--dim);
+  font-size: 0.7rem;
+}
+.d-cur .d-need {
+  flex-wrap: wrap;
+}
+.d-others {
+  margin-top: 6px;
+  font-size: 0.76rem;
+}
+.d-others summary {
+  cursor: pointer;
+  color: var(--dim);
+}
+.d-others .d-path {
+  display: grid;
+  margin-top: 5px;
+}
+.d-fold {
+  margin: 10px var(--pad) 0;
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+}
+.d-fold > summary {
+  cursor: pointer;
+  color: var(--dim);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.d-fold:last-of-type {
+  margin-bottom: 12px;
+}
+.d-fold .d-tools,
+.d-fold .d-perk {
+  padding-left: 0;
+  padding-right: 0;
+}
+/* wider window: shop and path side by side */
+@media (min-width: 560px) {
+  .d-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    align-content: start;
+  }
+  .d-panel > .d-bar,
+  .d-panel > .d-run,
+  .d-panel > .d-move,
+  .d-panel > .d-fold,
+  .d-panel > .d-note {
+    grid-column: 1 / -1;
+  }
+}
+/* very narrow: the pictures go under the instruction */
+@media (max-width: 330px) {
+  .d-now {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .d-pics {
+    grid-column: 1 / -1;
+  }
+  .d-run .d-chip:nth-child(n + 5) {
+    display: none;
+  }
+}
+.d-panel > * {
+  flex: none;
+}
+.d-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}

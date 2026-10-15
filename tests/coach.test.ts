@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { choosePath, judgeShop, paths, tips } from '../renderer/coach';
+import { choosePath, decide, judgeShop, paths, tips } from '../renderer/coach';
 import { Stable } from '../renderer/stable';
 
 // items of the "Nightfall · Growth" (Dark) build
@@ -65,5 +65,44 @@ describe('calm readings', () => {
     s.push([null, null]);
     expect(s.push([null, null])).toEqual(['a', null]);
     expect(s.push([null, null])).toEqual([null, null]);
+  });
+});
+
+describe('one clear instruction', () => {
+  const all = paths(have, '', 3);
+  const path = choosePath(all, null);
+  const base = { tower, bench: [] as string[], path, day: 6 };
+
+  it('buy what your build needs first', () => {
+    const m = decide({
+      ...base,
+      verdicts: judgeShop(['dark_orb', 'chopper'], have, path, all),
+      hud: { gold: 50, level: 3 },
+      shopOpen: true,
+    });
+    expect(m[0]).toMatchObject({ kind: 'buy', title: 'Buy Dark Orb', items: ['dark_orb'] });
+  });
+
+  it('merge a bench copy before anything else from the bench', () => {
+    const m = decide({ ...base, bench: ['black_rose'], verdicts: [], hud: {}, shopOpen: false });
+    expect(m[0]).toMatchObject({ kind: 'merge', title: 'Merge Black Rose' });
+  });
+
+  it('roll, level or save when the shop has nothing for you', () => {
+    const m = decide({
+      ...base,
+      verdicts: judgeShop(['chopper'], have, path, all),
+      hud: { gold: 80, level: 3, xp: [12, 60] },
+      shopOpen: true,
+    });
+    expect(['roll', 'level', 'save']).toContain(m.at(-1)!.kind);
+    const poor = decide({ ...base, verdicts: [], hud: { gold: 1, level: 3, xp: [12, 60] }, shopOpen: true });
+    expect(poor[0]!.kind).toBe('save');
+  });
+
+  it('with the shop closed: what to look for next', () => {
+    const m = decide({ ...base, verdicts: [], hud: {}, shopOpen: false });
+    expect(m[0]!.kind).toBe('wait');
+    expect(m[0]!.title).toMatch(/^Next: /);
   });
 });

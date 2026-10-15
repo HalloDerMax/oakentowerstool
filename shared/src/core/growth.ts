@@ -28,6 +28,8 @@ const SWAP_MIN_GAIN = 0.01; // score units; smaller swaps are not worth the gold
 const SCORE_HP_MULT = 10;
 /** at least this many items from the build's own packs (if the pool has them) */
 const MIN_OWN = 4;
+/** a two-pack build needs at least this many items of EACH of its packs (if the shop has them) */
+const MIN_PER_PACK = 2;
 /** gold limits how many copies you can buy: max star per phase (no gold model yet) */
 const STAR_CAP: Record<Phase['id'], number> = { p1: 1, p2: 2, p3: 3, p4: 3 };
 /** builds kept per perk */
@@ -84,6 +86,13 @@ function expectedSeen(it: ItemDef, from: number, to: number, pool: ItemDef[]): n
 function seenInPhase(it: ItemDef, ph: Phase, pool: ItemDef[]): number {
   if (it.rarity === 'Forged' || it.rarity === 'Cursed') return ph.days[0] >= 9 ? SPECIAL_SOURCE_CHANCE : 0;
   return 1 - Math.exp(-expectedSeen(it, ph.days[0], ph.days[1], pool));
+}
+/** first day in [from, to] whose shop can show the item's rarity (shop odds at that day's level); others: `from` */
+function firstShopDay(it: ItemDef, from: number, to: number): number {
+  const r = SHOP_RARITY.indexOf(it.rarity);
+  if (r < 0) return from;
+  for (let d = from; d <= to; d++) if ((SHOP_ODDS[Math.min(7, levelOnDay(d))]?.[r] ?? 0) > 0) return d;
+  return to;
 }
 /** star an item has reached by `day` when bought on `bought` (extra copies only for shop items) */
 function starBy(it: ItemDef, bought: number, day: number, pool: ItemDef[], extra = 0): number {
@@ -159,9 +168,22 @@ export function grow(def: Archetype, perks: string[]) {
   };
   const report = (ph: Phase) => evaluate(toBuild(cells, slotAt, perks, ph, pool), { seeds: 4 });
   const own = new Set(ownPool(def).map((i) => i.id));
+  /** items sold in a swap: never bought back later (you would move it in the tower instead, keeping its stars) */
+  const sold = new Set<string>();
   const ownCount = () => cells.filter((c) => c && own.has(c.id)).length;
   cells.forEach((c, i) => c && steps.push({ phase: 'p1', day: 1, k: 'start', itemId: c.id, cell: i, ...pick(report(PHASES[0]!)) }));
   /** own-pack items still needed to keep the build's identity */
+  const inPack = (id: string, p: string) => BY_ID[id]!.pack === p || BY_ID[id]!.pack2 === p;
+  const packCount = (p: string) => cells.filter((c) => c && inPack(c.id, p)).length;
+  /** a hybrid's pack that is still short of MIN_PER_PACK and can be bought in this phase */
+  const packNeeded = (ph: Phase) =>
+    def.packs.length < 2
+      ? undefined
+      : def.packs.find(
+          (p) =>
+            packCount(p) < MIN_PER_PACK &&
+            pool.some((it) => inPack(it.id, p) && !cells.some((c) => c?.id === it.id) && seenInPhase(it, ph, pool) > 0.05),
+        );
   const ownNeeded = (ph: Phase) => {
     const available = [...own].filter((id) => seenInPhase(BY_ID[id]!, ph, pool) > 0.05 && !cells.some((c) => c?.id === id));
     return ownCount() < MIN_OWN && available.length > 0;
@@ -178,7 +200,14 @@ export function grow(def: Archetype, perks: string[]) {
         const base = ev(ph, 2).score;
         const empty = cells.map((c, i) => (c ? -1 : i)).filter((i) => i >= 0);
         const mustOwn = ownNeeded(ph);
-        const cands = pool.filter((it) => !owned().has(it.id) && seenInPhase(it, ph, pool) > 0.05 && (!mustOwn || own.has(it.id)));
+        const mustPack = packNeeded(ph);
+        const cands = pool.filter(
+          (it) =>
+            !owned().has(it.id) &&
+            seenInPhase(it, ph, pool) > 0.05 &&
+            (!mustOwn || own.has(it.id)) &&
+            (!mustPack || inPack(it.id, mustPack)),
+        );
         // screening in the first empty cell, value = gain × chance to see it
         const scored = cands
           .map((it) => {
@@ -192,7 +221,7 @@ export function grow(def: Archetype, perks: string[]) {
         let best: { it: ItemDef; cell: number; v: number } | null = null;
         for (const { it } of scored)
           for (const cell of empty) {
-            cells[cell] = { id: it.id, bought: dayFor() };
+            cells[cell] = { id: it.id, bought: Math.max(dayFor(), firstShopDay(it, ph.days[0], ph.days[1])) };
             const g = ev(ph).score - base;
             cells[cell] = null;
             const v = Math.max(0, g) * seenInPhase(it, ph, pool);
@@ -200,7 +229,8 @@ export function grow(def: Archetype, perks: string[]) {
           }
         if (!best) break;
         // if nothing adds damage any more, the first (most likely) candidate still completes the tower
-        const day = dayFor();
+        // never before the shop can show it (an Epic does not come on day 1)
+        const day = Math.max(dayFor(), firstShopDay(best.it, ph.days[0], ph.days[1]));
         const firstBuy = econ.reflection && !steps.some((x) => x.k === 'buy');
         cells[best.cell] = { id: best.it.id, bought: day, ...(firstBuy ? { extra: 1 } : {}) };
         steps.push({
@@ -223,9 +253,12 @@ export function grow(def: Archetype, perks: string[]) {
           const cur = cells[cell];
           if (!cur || startIds.has(cur.id)) continue;
           for (const it of pool) {
-            if (owned().has(it.id)) continue;
+            if (owned().has(it.id) || sold.has(it.id)) continue;
             // never trade an own-pack item for a Neutral one if that breaks the build's identity
             if (own.has(cur.id) && !own.has(it.id) && ownCount() <= MIN_OWN) continue;
+            // nor drop one of a hybrid's packs below its minimum
+            if (def.packs.length > 1 && def.packs.some((p) => inPack(cur.id, p) && !inPack(it.id, p) && packCount(p) <= MIN_PER_PACK))
+              continue;
             const pSeen = seenInPhase(it, ph, pool);
             if (pSeen < 0.05) continue;
             cells[cell] = { id: it.id, bought: ph.days[0] + 1 };
@@ -238,12 +271,13 @@ export function grow(def: Archetype, perks: string[]) {
         if (!best) break;
         // confirm with full seeds
         const cur = cells[best.cell]!;
-        const day = ph.days[0] + Math.min(span - 1, s * 2);
+        const day = Math.max(ph.days[0] + Math.min(span - 1, s * 2), firstShopDay(best.it, ph.days[0], ph.days[1]));
         cells[best.cell] = { id: best.it.id, bought: day };
         if (ev(ph).score - base <= SWAP_MIN_GAIN) {
           cells[best.cell] = cur;
           break;
         }
+        sold.add(cur.id);
         // a slot belongs to the tower cell, so it now boosts the new item
         steps.push({
           phase: ph.id,
@@ -285,6 +319,8 @@ export function grow(def: Archetype, perks: string[]) {
     });
   }
   const final = toBuild(cells, slotAt, perks, PHASES[PHASES.length - 1]!, pool);
+  // slots are placed after a phase's buys but may unlock earlier: the guide reads day by day (stable sort keeps buy → slot)
+  steps.sort((a, b) => a.day - b.day);
   return { final, steps, phases };
 }
 const pick = (e: { winRate: number; avgTime: number }) => ({ winRate: e.winRate, avgTime: +e.avgTime.toFixed(1) });

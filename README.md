@@ -8,6 +8,8 @@
 
 Das Tool ist ein **Trainer**: Es liest dein Spiel mit und sagt dir klar, was du tun sollst.
 
+- **Eine Anweisung, groß oben:** **Buy …**, **Merge …**, **Swap in …**, **Sell …**, **Roll**, **Level up (60g)** oder **Save your gold**, mit einem Satz warum und dem nächsten Schritt darunter. Sie berücksichtigt deinen Build-Weg, deine Bank, dein Gold, Level und XP.
+
 - **Klare Kaufentscheidung über jedem Shop-Item** (ein ruhiges Label, das nur wechselt, wenn sich im Shop etwas ändert):
   - **BUY · Build**: dein Build braucht es
   - **STAR ↑**: Kopie eines Items, das du hast, ergibt einen Stern
@@ -16,8 +18,7 @@ Das Tool ist ein **Trainer**: Es liest dein Spiel mit und sagt dir klar, was du 
   - **Skip**
 - **Build-Wege zur Auswahl:** Aus deinen Items (Turm und Bank) schlägt das Tool bis zu drei Wege vor, aus unseren berechneten Builds und aus Builds, die es für deine Packs neu berechnet. Du klickst deinen Weg an, und die Tipps folgen ihm.
 - **Liest das Spiel mit:** Turm, **Bank**, **Perk**, **Tag**, **Gold**, **Level und XP**, **Luck**, **nächste Chest**, **Shop-Chancen**, **Leben**, **Trophäen**. Tag, Perk und Turm werden übernommen.
-- **Coach:** kurze To-do-Liste, die auf jede Änderung reagiert, z. B. kaufen, Kopien zusammenführen, Bank-Items einsetzen oder verkaufen, rollen oder leveln (mit deinem echten Gold und deinen XP).
-- **Panel über dem Spiel:** verschiebbar, **durchsichtig einstellbar (20–100 %)**, sperrbar (Klicks gehen durch zum Spiel).
+- **Panel über dem Spiel:** übersichtlich (Anweisung, Shop, Weg; Turm, Planer und Einstellungen eingeklappt), passt sich jeder Fenstergröße an (breit: Shop und Weg nebeneinander), springt nicht bei Aktualisierungen, verschiebbar, **durchsichtig einstellbar (20–100 %)**, sperrbar (Klicks gehen durch zum Spiel).
 - **Live mit dem Planner der Website verbunden:** Änderungen erscheinen sofort auf beiden Seiten.
 
 ![Panel](docs/screenshots/panel.png)
