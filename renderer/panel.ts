@@ -418,11 +418,11 @@ async function scan(): Promise<void> {
     const places = shopPlaces(),
       cells = towerCells(),
       windows = benchWindows().map(at);
-    const readHud = cfg.autoTower && !ocrBusy && tick % 3 === 1;
+    const readHud = cfg.autoTower && !ocrBusy && tick % 6 === 1;
     const fields = readHud ? HUD_FIELDS.map((f) => at(f.box)) : [];
     const perkBox = cfg.autoTower ? [at(PERK_BOX)] : [];
     // no shop on screen: maybe an encounter (its titles are read in the background)
-    const lookForEncounter = !shop.some(Boolean) && tick % 2 === 0;
+    const lookForEncounter = !shop.some(Boolean) && tick % 3 === 0;
     const titleBoxes = lookForEncounter ? ENCOUNTER_TITLES.map(at) : [];
     // the tower is grabbed as one piece around it; its cells are then found by their frames
     const tw = layout().tower;
@@ -880,7 +880,7 @@ function init(): void {
       state = s;
       paintStatus();
     });
-    window.setInterval(() => void scan(), 700);
+    window.setInterval(() => void scan(), 300);
   }
   coach();
   paintRun();
