@@ -935,14 +935,13 @@ html:has(.h-body),
 .h-mark.t-alt .h-frame {
   border-width: 2px;
 }
-/* skip: dimmed, thin red frame, a small sign in the corner */
+/* skip: thin red frame and a small sign in the corner (the item itself stays clear) */
 .h-mark.t-skip {
   --c: #e2483c;
 }
 .h-mark.t-skip .h-frame {
   inset: 2px;
   border-width: 2px;
-  background: rgba(10, 6, 4, 0.55);
   box-shadow: none;
 }
 .h-no {
