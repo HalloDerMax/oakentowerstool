@@ -8,6 +8,9 @@
  *   skip  – fits none of them
  */
 import { advise, SHOP_RARITIES, type ShopRarity } from '../shared/src/core/economy';
+import type { Encounter } from '../shared/src/core/types';
+import { encountersFor } from '../shared/src/data/encounterfit';
+import { ENCOUNTERS } from '../shared/src/data/encounters';
 import { ITEM_BY_ID } from '../shared/src/data/items';
 import type { OurBuild } from '../shared/src/ui/buildguide';
 import { BUILDS, fit } from '../shared/src/ui/fits';
@@ -174,7 +177,7 @@ export function tips(o: {
 }
 
 /* ---------- one clear instruction ---------- */
-export type MoveKind = 'buy' | 'star' | 'merge' | 'swap' | 'sell' | 'roll' | 'level' | 'save' | 'wait';
+export type MoveKind = 'move' | 'take' | 'buy' | 'star' | 'merge' | 'swap' | 'sell' | 'roll' | 'level' | 'save' | 'wait';
 export interface Move {
   kind: MoveKind;
   /** the instruction, a few words ("Buy Dark Orb", "Roll", "Level up") */
@@ -200,18 +203,40 @@ export function decide(o: {
   day: number;
   /** the shop is on screen */
   shopOpen: boolean;
+  /** an encounter is on screen: the option to take */
+  encounter?: { option: string; text: string; why: string } | null;
+  /** a pick screen (one of three items): the item to take */
+  pick?: { id: string; why: string } | null;
 }): Move[] {
   const out: Move[] = [];
+  if (o.pick) {
+    out.push({ kind: 'take', title: 'Take ' + name(o.pick.id), detail: o.pick.why, items: [o.pick.id] });
+    return out;
+  }
+  if (o.encounter) {
+    out.push({
+      kind: 'take',
+      title: 'Take ' + o.encounter.option,
+      detail: o.encounter.why.charAt(0).toUpperCase() + o.encounter.why.slice(1) + '.',
+      items: [],
+    });
+    return out;
+  }
   const of = (t: Tone) => o.verdicts.filter((v): v is Verdict => v?.tone === t).map((v) => v.id);
   const buys = of('buy'),
     stars = of('star'),
     fits = of('fit');
   const pName = o.path ? pathName(o.path.b) : 'your build';
+  const place = placement(o.path, o.tower);
+  const spot = (id: string) => {
+    const at = place.target.findIndex((t, i) => t === id && o.tower[i] !== id);
+    return at >= 0 ? ' It goes ' + CELL_NAMES[at] + ' in your tower.' : '';
+  };
   if (buys.length)
     out.push({
       kind: 'buy',
       title: 'Buy ' + listNames(buys.slice(0, 2)),
-      detail: 'Your ' + pName + ' build needs it.',
+      detail: 'Your ' + pName + ' build needs it.' + spot(buys[0]!),
       items: buys.slice(0, 2),
     });
   if (stars.length)
@@ -220,6 +245,15 @@ export function decide(o: {
       title: 'Buy ' + listNames(stars.slice(0, 2)),
       detail: 'A second copy merges into a star.',
       items: stars.slice(0, 2),
+    });
+  // items in the wrong cell: neighbours work together, so the place matters
+  for (const m of place.moves.slice(0, 2))
+    out.push({
+      kind: 'move',
+      title: 'Move ' + name(m.id) + ' ' + CELL_NAMES[m.to],
+      detail:
+        'It is ' + CELL_NAMES[m.from] + ' now; your ' + pName + ' tower has it ' + CELL_NAMES[m.to] + ', next to the items it works with.',
+      items: [m.id],
     });
   // the bench
   const fin = o.path ? finalIds(o.path.b) : [];
@@ -313,4 +347,141 @@ export function decide(o: {
     });
   else if (o.shopOpen && !out.length) out.push({ kind: 'roll', title: 'Roll', detail: 'Nothing here for ' + pName + '.', items: [] });
   return out;
+}
+
+/* ---------- encounters ---------- */
+
+const letters = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
+function similar(a: string, b: string): number {
+  const x = letters(a),
+    y = letters(b);
+  if (!x || !y) return 0;
+  const d: number[][] = Array.from({ length: x.length + 1 }, (_, i) => [i, ...new Array(y.length).fill(0)]);
+  for (let j = 1; j <= y.length; j++) d[0]![j] = j;
+  for (let i = 1; i <= x.length; i++)
+    for (let j = 1; j <= y.length; j++)
+      d[i]![j] = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + (x[i - 1] === y[j - 1] ? 0 : 1));
+  return 1 - d[x.length]![y.length]! / Math.max(x.length, y.length);
+}
+
+export interface SeenEncounter {
+  enc: Encounter;
+  /** which option of the encounter each panel on screen shows (index into enc.o, or null) */
+  panels: (number | null)[];
+}
+
+/** the titles read on screen → the encounter (small reading errors are fine) */
+export function matchEncounter(titles: string[], day?: number): SeenEncounter | null {
+  let best: { enc: Encounter; panels: (number | null)[]; score: number } | null = null;
+  for (const enc of ENCOUNTERS) {
+    const panels: (number | null)[] = titles.map((t) => {
+      let at: number | null = null,
+        top = 0.7;
+      enc.o.forEach(([name], i) => {
+        const s = similar(t, name);
+        if (s >= top) {
+          top = s;
+          at = i;
+        }
+      });
+      return at;
+    });
+    const found = panels.filter((p) => p !== null).length;
+    if (!found) continue;
+    // one title read is enough: the other panel shows the option that is left
+    if (panels.length === enc.o.length && found === panels.length - 1) {
+      const left = enc.o.findIndex((_, i) => !panels.includes(i));
+      panels[panels.indexOf(null)] = left;
+    }
+    const score = found + (day && enc.day === day ? 0.5 : 0);
+    if (!best || score > best.score) best = { enc, panels, score };
+  }
+  return best ? { enc: best.enc, panels: best.panels } : null;
+}
+
+/** which option to take, and why */
+export function decideEncounter(
+  seen: SeenEncounter,
+  o: { tower: (string | null)[]; path: Path | null; hud: HudInfo; day: number },
+): { pick: number; why: string } {
+  const cells = (o.path ? o.path.b.build.cells : o.tower.map((id) => (id ? { id, star: 0 } : null))) as { id: string; star: number }[];
+  const rules = encountersFor({ cells, packs: o.path?.b.packs ?? [], mechanic: o.path?.b.mechanic ?? '' }, 99).filter(
+    (p) => p.encounter === seen.enc.name,
+  );
+  const day = o.hud.day ?? o.day;
+  const lowLives = !!o.hud.lives && o.hud.lives[0] <= 4;
+  const scored = seen.enc.o.map(([name, text], i) => {
+    const rule = rules.find((r) => r.option === name);
+    let score = rule ? rule.weight * 2 : 0;
+    let why = rule ? rule.why : '';
+    if (/income/i.test(text)) {
+      score += day <= 8 ? 2 : 0.5;
+      if (!why && day <= 8) why = 'income early pays back every day';
+    }
+    if (/max hp|\bhp\b/i.test(text)) {
+      score += lowLives ? 2.5 : 1;
+      if (!why && lowLives) why = 'your lives are low: more HP keeps you in the run';
+    }
+    if (/gold/i.test(text) && !/income/i.test(text)) score += 0.8;
+    if (/legendary|epic|forged/i.test(text)) {
+      score += 1.5;
+      if (!why) why = 'a strong item now';
+    }
+    if (/random/i.test(text)) score -= 0.3;
+    return { i, score, why: why || text };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  const top = scored[0]!;
+  const close = scored[1] && Math.abs(scored[1].score - top.score) < 0.3;
+  return { pick: top.i, why: close ? 'both are about even; ' + top.why : top.why };
+}
+
+/* ---------- where items go in the tower ---------- */
+export const CELL_NAMES = ['top left', 'top right', 'middle left', 'middle right', 'bottom left', 'bottom right'];
+export interface Placement {
+  /** the path's finished tower, cell by cell */
+  target: (string | null)[];
+  /** items you have that sit in another cell than the path wants */
+  moves: { id: string; from: number; to: number }[];
+}
+export function placement(path: Path | null, tower: (string | null)[]): Placement {
+  const target = path ? path.b.build.cells.map((c) => c?.id ?? null) : [];
+  const moves: Placement['moves'] = [];
+  const used = new Set<number>();
+  target.forEach((id, to) => {
+    if (!id || tower[to] === id) return;
+    // one of yours that is not already where the path wants it
+    const from = tower.findIndex((t, i) => t === id && target[i] !== id && !used.has(i));
+    if (from >= 0) {
+      used.add(from);
+      moves.push({ id, from, to });
+    }
+  });
+  return { target, moves };
+}
+
+/* ---------- a pick screen (choose one of three items) ---------- */
+const RANK: Record<Tone, number> = { buy: 4, star: 3, fit: 2, alt: 1, skip: 0 };
+/** best item to take: what your path needs, then a star copy, your packs, another path, else the most valuable */
+export function judgePick(
+  ids: (string | null)[],
+  owned: string[],
+  path: Path | null,
+  others: Path[],
+): { best: number; why: string } | null {
+  const v = judgeShop(ids, owned, path, others);
+  let best = -1;
+  ids.forEach((id, i) => {
+    if (!id) return;
+    if (best < 0) return void (best = i);
+    const a = RANK[v[i]!.tone],
+      b = RANK[v[best]!.tone];
+    if (a > b || (a === b && (ITEM_BY_ID[id]?.cost ?? 0) > (ITEM_BY_ID[ids[best]!]?.cost ?? 0))) best = i;
+  });
+  if (best < 0) return null;
+  const vb = v[best]!;
+  return {
+    best,
+    why: vb.tone === 'skip' ? 'Nothing fits your build: it is worth the most (' + (ITEM_BY_ID[vb.id]?.cost ?? 0) + 'g).' : vb.why,
+  };
 }

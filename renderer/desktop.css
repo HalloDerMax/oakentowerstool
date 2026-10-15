@@ -768,171 +768,6 @@ html:has(.h-body),
   z-index: 2;
 }
 
-/* ===== marks on the game: loud for what to buy, the rest dimmed (square shapes, no pills, nothing cut off) ===== */
-.h-mark {
-  position: absolute;
-  pointer-events: none;
-  --s: 120px;
-  --c: #ffd84a;
-}
-.h-mark.gone {
-  display: none;
-}
-.h-mark .h-frame {
-  position: absolute;
-  inset: -6px;
-  border: max(4px, calc(var(--s) * 0.045)) solid var(--c);
-  border-radius: 4px;
-  box-shadow:
-    0 0 0 2px rgba(0, 0, 0, 0.85),
-    inset 0 0 0 2px rgba(0, 0, 0, 0.6),
-    0 0 calc(var(--s) * 0.25) var(--c);
-  animation: h-in 0.3s ease-out both;
-}
-/* corner brackets make the frame readable on busy backgrounds */
-.h-mark .h-c {
-  position: absolute;
-  width: calc(var(--s) * 0.22);
-  height: calc(var(--s) * 0.22);
-  border: max(6px, calc(var(--s) * 0.07)) solid var(--c);
-  filter: drop-shadow(0 0 3px #000);
-}
-.h-c.tl {
-  left: -14px;
-  top: -14px;
-  border-right: 0;
-  border-bottom: 0;
-}
-.h-c.tr {
-  right: -14px;
-  top: -14px;
-  border-left: 0;
-  border-bottom: 0;
-}
-.h-c.bl {
-  left: -14px;
-  bottom: -14px;
-  border-right: 0;
-  border-top: 0;
-}
-.h-c.br {
-  right: -14px;
-  bottom: -14px;
-  border-left: 0;
-  border-top: 0;
-}
-.h-tag {
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 16px);
-  transform: translateX(-50%);
-  display: grid;
-  justify-items: center;
-  min-width: 100%;
-  padding: calc(var(--s) * 0.04) calc(var(--s) * 0.1);
-  border-radius: 3px;
-  background: var(--c);
-  color: #140c02;
-  border: 3px solid #140c02;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.7);
-  text-align: center;
-  white-space: nowrap;
-  animation: h-in 0.3s ease-out both;
-}
-.h-tag b {
-  font: 900 max(18px, calc(var(--s) * 0.22)) / 1 var(--font);
-  letter-spacing: 0.04em;
-}
-.h-tag span {
-  font: 700 max(11px, calc(var(--s) * 0.1)) / 1.2 var(--font);
-}
-.h-arrow {
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 2px);
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 12px solid transparent;
-  border-right: 12px solid transparent;
-  border-top: 14px solid var(--c);
-  filter: drop-shadow(0 2px 0 #140c02);
-}
-/* buy: gold, breathing glow (nothing moves) */
-.h-mark.t-buy .h-frame {
-  animation:
-    h-in 0.3s ease-out both,
-    h-glow 1.6s ease-in-out infinite;
-}
-@keyframes h-glow {
-  50% {
-    box-shadow:
-      0 0 0 2px rgba(0, 0, 0, 0.85),
-      inset 0 0 0 2px rgba(0, 0, 0, 0.6),
-      0 0 calc(var(--s) * 0.5) var(--c);
-  }
-}
-.h-mark.t-star,
-.h-mark.t-fit {
-  --c: #4ee08a;
-}
-.h-mark.t-star .h-frame,
-.h-mark.t-fit .h-frame {
-  border-width: max(3px, calc(var(--s) * 0.03));
-}
-.h-mark.t-star .h-tag b,
-.h-mark.t-fit .h-tag b {
-  font-size: max(15px, calc(var(--s) * 0.16));
-}
-.h-mark.t-alt {
-  --c: #5fc4e8;
-}
-.h-mark.t-alt .h-frame {
-  border-width: 3px;
-}
-.h-mark.t-alt .h-c {
-  display: none;
-}
-.h-mark.t-alt .h-tag b {
-  font-size: max(13px, calc(var(--s) * 0.12));
-}
-/* skip: clearly marked red, and dimmed so the items to buy stand out */
-.h-mark.t-skip {
-  --c: #ff4a3d;
-  background: rgba(8, 5, 3, 0.6);
-  border-radius: 4px;
-}
-.h-mark.t-skip .h-frame {
-  border-width: 3px;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.85);
-}
-.h-mark.t-skip .h-c {
-  display: none;
-}
-.h-mark.t-skip .h-tag {
-  color: #fff;
-  background: #c4271c;
-}
-.h-mark.t-skip .h-tag b {
-  font-size: max(13px, calc(var(--s) * 0.12));
-}
-.h-x {
-  position: absolute;
-  right: 6px;
-  top: 4px;
-  font: 900 max(22px, calc(var(--s) * 0.26)) / 1 var(--font);
-  font-style: normal;
-  color: #ff4a3d;
-  text-shadow:
-    0 0 3px #000,
-    0 0 6px #000;
-}
-/* long build names wrap inside the banner instead of being cut */
-.h-tag {
-  white-space: normal;
-  max-width: calc(100% + 24px);
-}
-
 /* no cut-off text anywhere in the panel: it wraps instead */
 .d-panel *,
 .d-then li,
@@ -972,70 +807,156 @@ html:has(.h-body),
 .ov-btn {
   border-radius: 6px;
 }
-/* banners exactly as wide as their item: neighbours never overlap */
-.h-tag {
-  min-width: 0;
-  width: calc(100% + 12px);
-  max-width: none;
-  box-sizing: border-box;
+
+/* ===== marks on the game: calm, inside the item's place (nothing covers neighbours or the game's bars) ===== */
+.h-mark {
+  position: absolute;
+  pointer-events: none;
+  --s: 120px;
+  --c: #ffd84a;
 }
-/* buy: actively points at itself */
-.h-mark.t-buy {
-  z-index: 3;
+.h-mark.gone {
+  display: none;
 }
-.h-mark.t-buy .h-arrow {
-  border-left-width: 18px;
-  border-right-width: 18px;
-  border-top-width: 20px;
-  animation: h-bob 0.8s ease-in-out infinite;
+.h-frame {
+  position: absolute;
+  inset: 2px;
+  border: max(3px, calc(var(--s) * 0.03)) solid var(--c);
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.5),
+    inset 0 0 calc(var(--s) * 0.18) color-mix(in srgb, var(--c) 30%, transparent);
+  animation: h-pop 0.35s var(--ease) both;
 }
-@keyframes h-bob {
-  50% {
-    transform: translate(-50%, 9px);
+@keyframes h-pop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
   }
-}
-.h-mark.t-buy .h-tag {
-  animation:
-    h-in 0.3s ease-out both,
-    h-beat 1.1s ease-in-out infinite;
-}
-@keyframes h-beat {
-  0%,
+  70% {
+    transform: scale(1.03);
+  }
   100% {
-    transform: translateX(-50%) scale(1);
-  }
-  50% {
-    transform: translateX(-50%) scale(1.08);
+    transform: scale(1);
+    opacity: 1;
   }
 }
-/* rings that run out from the item */
+/* the ribbon: one line at the top inside the frame, wooden like the game's buttons */
+.h-rib {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 2px;
+  padding: calc(var(--s) * 0.025) 8px;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(180deg, rgba(122, 82, 51, 0.96), rgba(82, 52, 32, 0.96));
+  border-bottom: 2px solid #2a1a0e;
+  color: #fff6e8;
+  font: 600 max(11px, calc(var(--s) * 0.085)) / 1.15 var(--font-serif);
+  text-align: center;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+  overflow-wrap: anywhere;
+  animation: h-pop 0.35s var(--ease) both;
+}
+.h-rib b {
+  color: var(--c);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+/* buy: gold, brass corners, breathing glow and one soft ring */
+.h-mark.t-buy .h-frame {
+  border-width: max(4px, calc(var(--s) * 0.04));
+  animation:
+    h-pop 0.35s var(--ease) both,
+    h-glow 1.6s 0.35s ease-in-out infinite;
+}
+@keyframes h-glow {
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.7),
+      0 0 calc(var(--s) * 0.22) var(--c),
+      inset 0 0 calc(var(--s) * 0.3) color-mix(in srgb, var(--c) 40%, transparent);
+  }
+}
+.h-mark.t-buy .h-rib {
+  font-size: max(13px, calc(var(--s) * 0.1));
+}
+.h-c {
+  position: absolute;
+  width: max(10px, calc(var(--s) * 0.09));
+  height: max(10px, calc(var(--s) * 0.09));
+  border-radius: 2px;
+  background:
+    radial-gradient(circle, #fff3c4 0 20%, #6b4a12 24% 32%, transparent 34%), linear-gradient(145deg, #ffe08a, #c98f2c 55%, #7a5216);
+  box-shadow: 0 0 0 1px #2a1a0e;
+}
+.h-c.tl {
+  left: 0;
+  top: 0;
+}
+.h-c.tr {
+  right: 0;
+  top: 0;
+}
+.h-c.bl {
+  left: 0;
+  bottom: 0;
+}
+.h-c.br {
+  right: 0;
+  bottom: 0;
+}
 .h-ping {
   position: absolute;
-  inset: -6px;
-  border: 4px solid var(--c);
-  border-radius: 6px;
+  inset: 2px;
+  border: 2px solid var(--c);
+  border-radius: 8px;
   opacity: 0;
-  animation: h-ping 1.6s ease-out infinite;
-}
-.h-ping.two {
-  animation-delay: 0.8s;
+  animation: h-ping 1.8s ease-out infinite;
 }
 @keyframes h-ping {
   0% {
     transform: scale(1);
-    opacity: 0.9;
+    opacity: 0.8;
   }
   100% {
-    transform: scale(1.35);
+    transform: scale(1.08);
     opacity: 0;
   }
 }
-/* star / fits: a calm breathing glow */
-.h-mark.t-star .h-frame,
-.h-mark.t-fit .h-frame {
-  animation:
-    h-in 0.3s ease-out both,
-    h-glow 2.2s ease-in-out infinite;
+.h-mark.t-star,
+.h-mark.t-fit {
+  --c: #5fe39a;
+}
+.h-mark.t-alt {
+  --c: #6fd0f2;
+}
+.h-mark.t-alt .h-frame {
+  border-width: 2px;
+}
+/* skip: dimmed, thin red frame, a small sign in the corner */
+.h-mark.t-skip {
+  --c: #e2483c;
+}
+.h-mark.t-skip .h-frame {
+  inset: 2px;
+  border-width: 2px;
+  background: rgba(10, 6, 4, 0.55);
+  box-shadow: none;
+}
+.h-no {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #b8261b;
+  border: 1px solid #2a1a0e;
+  color: #fff;
+  font: 700 max(10px, calc(var(--s) * 0.075)) / 1.2 var(--font);
+  letter-spacing: 0.04em;
+  animation: h-pop 0.35s var(--ease) both;
 }
 @media (prefers-reduced-motion: reduce) {
   .h-mark * {
@@ -1043,160 +964,52 @@ html:has(.h-body),
   }
 }
 
-/* ===== game look (like the site's fight screen and builder): wooden plaques, iron corner plates, pop ===== */
-.h-mark .h-frame {
-  inset: -4px;
-  border: max(3px, calc(var(--s) * 0.035)) solid var(--c);
+/* the path's tower: where each item goes */
+.d-plan {
+  display: grid;
+  grid-template-columns: repeat(2, 44px);
+  gap: 4px;
+  margin-top: 8px;
+  padding: 6px;
+  width: max-content;
   border-radius: 8px;
-  box-shadow:
-    0 0 0 2px #fff6e8,
-    0 0 0 5px #2a1a0e,
-    0 0 calc(var(--s) * 0.3) color-mix(in srgb, var(--c) 70%, transparent),
-    inset 0 0 calc(var(--s) * 0.2) color-mix(in srgb, var(--c) 35%, transparent);
-  animation: h-pop 0.45s var(--ease) both;
+  background: linear-gradient(180deg, var(--wood-2), var(--wood-3));
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5);
 }
-@keyframes h-pop {
-  0% {
-    transform: scale(0.7);
-    opacity: 0.2;
-  }
-  60% {
-    transform: scale(1.07);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-@keyframes h-glow {
-  50% {
-    box-shadow:
-      0 0 0 2px #fff6e8,
-      0 0 0 5px #2a1a0e,
-      0 0 calc(var(--s) * 0.55) var(--c),
-      inset 0 0 calc(var(--s) * 0.3) color-mix(in srgb, var(--c) 45%, transparent);
-  }
-}
-.h-mark.t-buy .h-frame,
-.h-mark.t-star .h-frame,
-.h-mark.t-fit .h-frame {
-  animation:
-    h-pop 0.45s var(--ease) both,
-    h-glow 1.6s 0.45s ease-in-out infinite;
-}
-/* iron corner plates with a rivet, like the tower's frame in the game */
-.h-mark .h-c {
-  width: calc(var(--s) * 0.2);
-  height: calc(var(--s) * 0.2);
-  min-width: 18px;
-  min-height: 18px;
-  border: 0;
-  border-radius: 3px;
-  background:
-    radial-gradient(circle at 50% 50%, #d9d2c4 0 18%, #3a3632 22% 30%, transparent 32%),
-    linear-gradient(145deg, #8a8580, #4a4744 55%, #2c2a28);
-  box-shadow:
-    0 0 0 2px #1a1714,
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  filter: none;
-}
-.h-mark.t-buy .h-c {
-  background:
-    radial-gradient(circle at 50% 50%, #fff3c4 0 18%, #6b4a12 22% 30%, transparent 32%),
-    linear-gradient(145deg, #ffe08a, #c98f2c 55%, #7a5216);
-}
-.h-c.tl {
-  left: -10px;
-  top: -10px;
-}
-.h-c.tr {
-  right: -10px;
-  top: -10px;
-}
-.h-c.bl {
-  left: -10px;
-  bottom: -10px;
-}
-.h-c.br {
-  right: -10px;
-  bottom: -10px;
-}
-/* the label: a wooden plaque like the FIGHT button, the colour on its top edge and in the word */
-.h-tag {
-  padding: calc(var(--s) * 0.05) calc(var(--s) * 0.06) calc(var(--s) * 0.06);
-  border: 3px solid #2a1a0e;
-  border-top: 5px solid var(--c);
+.d-pc {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
   border-radius: 6px;
-  background: linear-gradient(180deg, #7a5233, #523420);
-  box-shadow:
-    inset 0 2px 0 rgba(255, 220, 170, 0.2),
-    0 5px 0 #2a1a0e,
-    0 10px 22px rgba(0, 0, 0, 0.55);
-  color: #fff6e8;
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.55);
+  background: rgba(20, 13, 9, 0.65);
+  border: 2px solid transparent;
 }
-.h-tag b {
-  font: 700 max(18px, calc(var(--s) * 0.2)) / 1.05 var(--font-serif);
-  letter-spacing: 0.05em;
-  color: var(--c);
+.d-pc img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
 }
-.h-tag span {
-  font: 600 max(11px, calc(var(--s) * 0.095)) / 1.2 var(--font-serif);
-  color: #f1e8da;
+.d-pc.ok {
+  border-color: var(--ok);
 }
-.h-mark.t-skip .h-tag {
-  background: linear-gradient(180deg, #5a3a2a, #3a241a);
-  color: #fff6e8;
+.d-pc.move {
+  border-color: #ffb347;
+  box-shadow: 0 0 8px rgba(255, 179, 71, 0.6);
 }
-.h-mark.t-skip .h-tag b {
-  color: #ff8a7a;
+.d-pc.need img {
+  opacity: 0.45;
+  filter: grayscale(0.6);
 }
-.h-mark.t-skip .h-frame {
-  border-width: 3px;
-  box-shadow:
-    0 0 0 2px #2a1a0e,
-    inset 0 0 calc(var(--s) * 0.15) rgba(255, 74, 61, 0.25);
-  animation: h-pop 0.45s var(--ease) both;
+.d-pc.empty {
+  border: 2px dashed rgba(255, 236, 205, 0.12);
 }
-.h-x {
-  font-family: var(--font-serif);
-  color: #ff8a7a;
-  text-shadow:
-    0 2px 0 #2a1a0e,
-    0 0 6px #000;
+.d-plan-h {
+  display: block;
+  margin-top: 8px;
+  color: var(--dim);
+  font-size: 0.68rem;
 }
-/* the arrow: a brass point under the plaque */
-.h-mark.t-buy .h-arrow {
-  border-top-color: #ffd88a;
-  filter: drop-shadow(0 3px 0 #2a1a0e);
-}
-.h-ping {
-  border-width: 3px;
-  border-radius: 10px;
-  box-shadow: 0 0 12px var(--c);
-}
-.h-mark .h-tag {
-  animation: h-pop 0.45s var(--ease) both;
-}
-.h-mark.t-buy .h-tag {
-  animation:
-    h-pop-x 0.45s var(--ease) both,
-    h-beat 1.1s 0.45s ease-in-out infinite;
-}
-/* the plaque is centred with translateX: its pop keeps that */
-.h-mark .h-tag {
-  animation-name: h-pop-x;
-}
-@keyframes h-pop-x {
-  0% {
-    transform: translateX(-50%) scale(0.7);
-    opacity: 0.2;
-  }
-  60% {
-    transform: translateX(-50%) scale(1.07);
-  }
-  100% {
-    transform: translateX(-50%) scale(1);
-    opacity: 1;
-  }
+.d-plan-h + .d-plan {
+  margin-top: 4px;
 }

@@ -52,3 +52,25 @@ export async function readFields(crops: Partial<Record<HudKey, Img>>, fp: (i: Im
   if (memo.size > 600) memo.clear();
   return out;
 }
+
+/** read one line of free text (encounter titles); the picture is scaled to about 40 px text height */
+export async function readLine(img: Img, fp: (i: Img) => string): Promise<string> {
+  const key = 'line' + fp(img);
+  const known = memo.get(key);
+  if (known !== undefined) return known;
+  const w = await getWorker();
+  const k = Math.max(1, Math.min(3, 120 / img.h));
+  const big = resize(img, Math.round(img.w * k), Math.round(img.h * k));
+  await w.setParameters({
+    tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'!-. ",
+    tessedit_pageseg_mode: PSM.SINGLE_LINE,
+  });
+  canvas.width = big.w;
+  canvas.height = big.h;
+  canvas.getContext('2d')!.putImageData(new ImageData(inkOnPaper(big, 'light') as Uint8ClampedArray<ArrayBuffer>, big.w, big.h), 0, 0);
+  const r = await w.recognize(canvas);
+  // the names are matched against the known options afterwards, so an unsure reading is still useful
+  const text = r.data.confidence >= 25 ? r.data.text.trim() : '';
+  memo.set(key, text);
+  return text;
+}

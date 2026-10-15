@@ -47,18 +47,21 @@ function paintBadges(): void {
     el.className = 'h-mark t-' + s.tone;
     // sizes follow the item on screen
     el.setAttribute('style', place(s.rect) + ';--s:' + Math.round(s.rect.h * window.innerHeight) + 'px');
-    const [head, ...rest] = s.badge.split(' · ');
+    const [, ...rest] = s.badge.split(' · ');
     const word: Record<HintSlot['tone'], string> = { buy: 'BUY', star: 'STAR ↑', fit: 'FITS', alt: 'SWITCH', skip: 'SKIP' };
+    // everything stays inside the item's place: nothing covers a neighbour or the game's bars
     el.innerHTML =
-      '<i class="h-frame"></i><i class="h-c tl"></i><i class="h-c tr"></i><i class="h-c bl"></i><i class="h-c br"></i>' +
+      '<i class="h-frame"></i>' +
+      (s.tone === 'buy'
+        ? '<i class="h-c tl"></i><i class="h-c tr"></i><i class="h-c bl"></i><i class="h-c br"></i><i class="h-ping"></i>'
+        : '') +
       (s.tone === 'skip'
-        ? '<div class="h-tag"><b>SKIP</b><span>not your build</span></div><i class="h-x">✕</i>'
-        : '<div class="h-tag"><b>' +
-          esc(word[s.tone] || head!) +
+        ? '<span class="h-no">✕ SKIP</span>'
+        : '<span class="h-rib"><b>' +
+          esc(s.badge.startsWith('TAKE') ? 'TAKE' : word[s.tone]) +
           '</b>' +
-          (rest.length ? '<span>' + esc(rest.join(' · ')) + '</span>' : '') +
-          '</div>' +
-          (s.tone === 'buy' ? '<div class="h-arrow"></div><i class="h-ping"></i><i class="h-ping two"></i>' : ''));
+          (rest.length ? ' · ' + esc(rest.join(' · ')) : '') +
+          '</span>');
   }
 }
 

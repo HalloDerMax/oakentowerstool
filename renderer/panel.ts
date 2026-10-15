@@ -26,9 +26,37 @@ import { runGrow, runSuggest } from '../shared/src/ui/simclient';
 import type { OurBuild } from '../shared/src/ui/buildguide';
 import type { DesktopApi, DesktopConfig, DesktopState, HintSlot, Rect } from './bridge';
 import { grab, stop as stopStream } from './capture';
-import { choosePath, decide, judgeShop, mainPacks, pathName, paths, type HudInfo, type Move, type Path, type Verdict } from './coach';
-import { autoLayout, benchWindows, HUD_FIELDS, parseHud, PERK_BOX, placeOnScreen, type HudKey } from './hud';
-import type { Facing, Img, Match } from './recognize';
+import {
+  CELL_NAMES,
+  choosePath,
+  decide,
+  judgePick,
+  placement,
+  decideEncounter,
+  judgeShop,
+  matchEncounter,
+  mainPacks,
+  pathName,
+  paths,
+  type HudInfo,
+  type Move,
+  type Path,
+  type Verdict,
+} from './coach';
+import {
+  autoLayout,
+  benchWindows,
+  ENCOUNTER_PANELS,
+  ENCOUNTER_TITLES,
+  HUD_FIELDS,
+  parseHud,
+  PICK_BOXES,
+  PERK_BOX,
+  placeOnScreen,
+  type HudKey,
+} from './hud';
+import { crop, cells as splitCells, type Facing, type Img, type Match } from './recognize';
+import { innerCell, snapTower } from './grid';
 import type { Group, RecRequest, RecResponse } from './recognize.worker';
 import { Stable } from './stable';
 
@@ -164,7 +192,9 @@ function view(): OverlayView {
 
 /* ---------- recognition worker ---------- */
 let state: DesktopState | null = null;
-const rec = new Worker(new URL('./recognize.worker.ts', import.meta.url), { type: 'module' });
+/** several recognition workers: the slots of one scan are shared out, so a new shop is read in a fraction of the time */
+const POOL = Math.max(2, Math.min(4, (navigator.hardwareConcurrency || 4) - 2));
+const recs = Array.from({ length: POOL }, () => new Worker(new URL('./recognize.worker.ts', import.meta.url), { type: 'module' }));
 let recSeq = 0;
 let picturesSent: Promise<void> | null = null;
 function sendPictures(): Promise<void> {
@@ -191,7 +221,7 @@ function sendPictures(): Promise<void> {
             img.src = import.meta.env.BASE_URL + 'img/' + slug(it.name) + '.png';
           }),
       ),
-    ).then(() => rec.postMessage({ op: 'icons', group, icons } satisfies RecRequest));
+    ).then(() => recs.forEach((w) => w.postMessage({ op: 'icons', group, icons } satisfies RecRequest)));
   };
   picturesSent = Promise.all([load(ITEMS, 'items'), load(PERKS, 'perks')]).then(() => undefined);
   return picturesSent;
@@ -227,21 +257,26 @@ function fingerprint(img: Img): string {
 const memo = new Map<string, Match | null>();
 async function identifyAll(slots: Img[], facing: Facing, group: Group = 'items'): Promise<(Match | null)[]> {
   const keys = slots.map((s) => group + facing + fingerprint(s));
-  const todo = slots.map((s, i) => (memo.has(keys[i]!) ? null : s));
-  if (todo.some(Boolean)) {
-    const id = ++recSeq;
-    const res = await new Promise<RecResponse>((resolve) => {
-      const on = (e: MessageEvent<RecResponse>) => {
-        if (e.data.id !== id) return;
-        rec.removeEventListener('message', on);
-        resolve(e.data);
-      };
-      rec.addEventListener('message', on);
-      rec.postMessage({ op: 'identify', id, group, slots: todo, facing } satisfies RecRequest);
-    });
-    res.matches.forEach((m, i) => {
-      if (todo[i]) memo.set(keys[i]!, m);
-    });
+  const todo = slots.map((_, i) => (memo.has(keys[i]!) ? -1 : i)).filter((i) => i >= 0);
+  if (todo.length) {
+    // round robin over the workers, all at the same time
+    await Promise.all(
+      recs.map(async (w, wi) => {
+        const mine = todo.filter((_, k) => k % recs.length === wi);
+        if (!mine.length) return;
+        const id = ++recSeq;
+        const res = await new Promise<RecResponse>((resolve) => {
+          const on = (e: MessageEvent<RecResponse>) => {
+            if (e.data.id !== id) return;
+            w.removeEventListener('message', on);
+            resolve(e.data);
+          };
+          w.addEventListener('message', on);
+          w.postMessage({ op: 'identify', id, group, slots: mine.map((i) => slots[i]!), facing } satisfies RecRequest);
+        });
+        res.matches.forEach((m, k) => memo.set(keys[mine[k]!]!, m));
+      }),
+    );
     if (memo.size > 800) memo.clear();
   }
   return keys.map((k) => memo.get(k) ?? null);
@@ -252,6 +287,9 @@ const calmShop = new Stable(2, 3);
 const calmTower = new Stable(2, 3);
 const calmBench = new Stable(2, 2);
 const calmPerk = new Stable(2, 4);
+const calmPick = new Stable(2, 2);
+/** a pick screen on screen: the three items and where they are */
+let pick: { ids: (string | null)[]; rects: Rect[] } | null = null;
 let shop: (string | null)[] = [];
 let bench: string[] = [];
 let scanMsg = 'Not calibrated';
@@ -284,6 +322,91 @@ function towerCells(): Rect[] {
 
 let ocr: typeof import('./ocr') | null = null;
 let scanning = false;
+/** the tower's cells out of one picture around it: snapped to the frames, inner part only (no signs, no star) */
+function towerCutouts(area: Img | undefined, n: number): Img[] {
+  const t = layout().tower;
+  if (!area || !t) return [];
+  // picture pixels per reference pixel: the area is the tower box grown by 12 % on every side
+  const snap = snapTower(area, area.w / 1.24 / 365);
+  if (snap)
+    return snap.cells.slice(0, n).map((c) => {
+      const r = innerCell(c);
+      return crop(area, r.x, r.y, r.w, r.h);
+    });
+  // no frames found (an unusual screen): the even split of the box
+  const inner = crop(area, (area.w * 0.12) / 1.24, (area.h * 0.12) / 1.24, area.w / 1.24, area.h / 1.24);
+  return splitCells(inner, t.cols, t.rows).slice(0, n);
+}
+/* ---------- encounters: read the option titles when no shop is open ---------- */
+let encounter: {
+  name: string;
+  panels: (Rect | null)[];
+  options: (string | null)[];
+  pick: number;
+  text: string;
+  why: string;
+  at: number;
+} | null = null;
+let lineBusy = false;
+function readEncounterLater(titles: Img[], panels: Rect[]): void {
+  if (lineBusy || !titles.length) return;
+  lineBusy = true;
+  void (async () => {
+    try {
+      ocr ??= await import('./ocr');
+      const texts: string[] = [];
+      for (const t of titles) texts.push(await ocr.readLine(t, fingerprint));
+      const seen = matchEncounter(texts, hud.day ?? plan.day);
+      if (!seen) return;
+      const d = decideEncounter(seen, { tower: plan.cells.map((c) => c?.id ?? null), path, hud, day: plan.day });
+      const before = encounter?.name + '|' + encounter?.pick;
+      encounter = {
+        name: seen.enc.name,
+        panels: seen.panels.map((o, i) => (o === null ? null : panels[i]!)),
+        options: seen.panels.map((o) => (o === null ? null : seen.enc.o[o]![0])),
+        pick: d.pick,
+        text: seen.enc.o[d.pick]![1],
+        why: d.why,
+        at: Date.now(),
+      };
+      if (before !== encounter.name + '|' + encounter.pick) coach();
+    } catch {
+      /* next time */
+    } finally {
+      lineBusy = false;
+    }
+  })();
+}
+/** a match this clear needs no second frame */
+const sure = (m: Match | null) => !!m && m.score < 0.6 && m.next - m.score > 0.15;
+let ocrBusy = false;
+/** the HUD (gold, level …) is read in the background: it never holds up the item recognition */
+function readHudLater(imgs: Img[]): void {
+  if (ocrBusy || !imgs.length) return;
+  ocrBusy = true;
+  void (async () => {
+    try {
+      ocr ??= await import('./ocr');
+      const text = await ocr.readFields(
+        Object.fromEntries(HUD_FIELDS.map((f, i) => [f.key, imgs[i]!])) as Partial<Record<HudKey, Img>>,
+        fingerprint,
+      );
+      const h = parseHud(text);
+      if (JSON.stringify({ ...hud, ...h }) === JSON.stringify(hud)) return;
+      hud = { ...hud, ...h };
+      paintRun();
+      refresh();
+      if (h.day && Math.min(16, h.day) !== plan.day) {
+        plan.day = Math.min(16, h.day);
+        afterChange();
+      } else coach();
+    } catch {
+      /* next time */
+    } finally {
+      ocrBusy = false;
+    }
+  })();
+}
 async function scan(): Promise<void> {
   if (!api || scanning || !state?.config.scan) return;
   const cfg = state.config;
@@ -295,39 +418,75 @@ async function scan(): Promise<void> {
     const places = shopPlaces(),
       cells = towerCells(),
       windows = benchWindows().map(at);
-    const readHud = cfg.autoTower && tick % 2 === 1;
+    const readHud = cfg.autoTower && !ocrBusy && tick % 3 === 1;
     const fields = readHud ? HUD_FIELDS.map((f) => at(f.box)) : [];
     const perkBox = cfg.autoTower ? [at(PERK_BOX)] : [];
-    const imgs = await grab([...places.map((r) => grow(r)), ...cells.map((r) => grow(r)), ...windows, ...perkBox, ...fields]);
+    // no shop on screen: maybe an encounter (its titles are read in the background)
+    const lookForEncounter = !shop.some(Boolean) && tick % 2 === 0;
+    const titleBoxes = lookForEncounter ? ENCOUNTER_TITLES.map(at) : [];
+    // the tower is grabbed as one piece around it; its cells are then found by their frames
+    const tw = layout().tower;
+    const towerArea = tw ? [grow(tw, 0.12)] : [];
+    const pickBoxes = PICK_BOXES.map(at);
+    const imgs = await grab([...places.map((r) => grow(r)), ...towerArea, ...windows, ...perkBox, ...fields, ...titleBoxes, ...pickBoxes]);
     if (!imgs.length) return;
     let k = 0;
     const take = (n: number) => imgs.slice(k, (k += n));
     const shopImgs = take(places.length),
-      towerImgs = take(cells.length),
+      towerImgs = towerCutouts(take(towerArea.length)[0], cells.length),
       benchImgs = take(windows.length),
       perkImgs = take(perkBox.length),
-      hudImgs = take(fields.length);
+      hudImgs = take(fields.length),
+      titleImgs = take(titleBoxes.length),
+      pickImgs = take(pickBoxes.length);
+    if (titleImgs.length) readEncounterLater(titleImgs, ENCOUNTER_PANELS.map(at));
 
     // shop as drawn; tower and bench mirrored (that is how the game shows your own items)
-    const [shopRead, towerRead, benchRead, perkRead] = await Promise.all([
-      identifyAll(shopImgs, 'normal'),
+    // a pick screen (choose one of three items) covers the shop: read it first
+    const pickRead = calmPick.push((await identifyAll(pickImgs, 'normal')).map((m) => (m && m.score < 0.8 ? m.id : null)));
+    const pickNow = pickRead.filter(Boolean).length >= 2 ? { ids: pickRead, rects: pickBoxes } : null;
+    if (JSON.stringify(pickNow?.ids) !== JSON.stringify(pick?.ids)) {
+      pick = pickNow;
+      coach();
+    }
+    // the shop first: its labels appear before tower and bench are read
+    const shopRead = pick ? shopImgs.map(() => null) : await identifyAll(shopImgs, 'normal');
+    {
+      const quick = calmShop.peek(
+        shopRead.map((m) => m?.id ?? null),
+        shopRead.map(sure),
+      );
+      if (quick.join() !== shop.join()) {
+        shop = quick;
+        coach();
+      }
+    }
+    const [towerRead, benchRead, perkRead] = await Promise.all([
       identifyAll(towerImgs, 'mirrored'),
       identifyAll(benchImgs, 'mirrored'),
       identifyAll(perkImgs, 'normal', 'perks'),
     ]);
-    const newShop = calmShop.push(shopRead.map((m) => m?.id ?? null));
+    const newShop = calmShop.push(
+      shopRead.map((m) => m?.id ?? null),
+      shopRead.map(sure),
+    );
     const benchCalm = calmBench.push(benchRead.map((m) => m?.id ?? null));
     // neighbouring windows see the same item twice
     const newBench = benchCalm.filter((id, i): id is string => !!id && benchCalm[i - 1] !== id);
     let planChanged = false;
     if (cfg.autoTower) {
-      calmTower.push(towerRead.map((m) => m?.id ?? null)).forEach((id, i) => {
-        const cur = plan.cells[i] ?? null;
-        if ((cur?.id ?? null) === id) return;
-        // a new item keeps no stars; the same item keeps the stars you set
-        plan.cells[i] = id ? { id, star: 0 } : null;
-        planChanged = true;
-      });
+      calmTower
+        .push(
+          towerRead.map((m) => m?.id ?? null),
+          towerRead.map(sure),
+        )
+        .forEach((id, i) => {
+          const cur = plan.cells[i] ?? null;
+          if ((cur?.id ?? null) === id) return;
+          // a new item keeps no stars; the same item keeps the stars you set
+          plan.cells[i] = id ? { id, star: 0 } : null;
+          planChanged = true;
+        });
       const perk = calmPerk.push(perkRead.map((m) => m?.id ?? null))[0];
       if (perk && perk !== plan.perk) {
         plan.perk = perk;
@@ -335,22 +494,10 @@ async function scan(): Promise<void> {
         planChanged = true;
       }
     }
-    if (readHud && hudImgs.length) {
-      ocr ??= await import('./ocr');
-      const text = await ocr.readFields(
-        Object.fromEntries(HUD_FIELDS.map((f, i) => [f.key, hudImgs[i]!])) as Partial<Record<HudKey, Img>>,
-        fingerprint,
-      );
-      const h = parseHud(text);
-      if (JSON.stringify(h) !== JSON.stringify(hud)) {
-        hud = { ...hud, ...h };
-        if (h.day && Math.min(16, h.day) !== plan.day) {
-          plan.day = Math.min(16, h.day);
-          planChanged = true;
-        }
-        paintRun();
-        refresh();
-      }
+    readHudLater(hudImgs);
+    if (encounter && (newShop.some(Boolean) || Date.now() - encounter.at > 6000)) {
+      encounter = null;
+      coach();
     }
     const shopChanged = newShop.join() !== shop.join() || newBench.join() !== bench.join();
     shop = newShop;
@@ -398,9 +545,33 @@ function coach(): void {
   path = choosePath(allPaths, picked);
   verdicts = judgeShop(shop, have, path, allPaths);
   const places = shopPlaces();
-  const slots: (HintSlot | null)[] = verdicts.map((v, i) =>
-    v && places[i] ? { id: v.id, name: nameOf(v.id), tone: v.tone, badge: v.badge, why: v.why, rect: places[i]! } : null,
-  );
+  const pickBest = pick ? judgePick(pick.ids, have, path, allPaths) : null;
+  const slots: (HintSlot | null)[] = pick
+    ? pick.ids.map((id, i) =>
+        id
+          ? i === pickBest?.best
+            ? { id, name: nameOf(id), tone: 'buy', badge: 'TAKE · ' + nameOf(id), why: pickBest.why, rect: pick!.rects[i]! }
+            : { id, name: nameOf(id), tone: 'skip', badge: 'Skip', why: '', rect: pick!.rects[i]! }
+          : null,
+      )
+    : encounter
+      ? encounter.panels.map((r, i) =>
+          r
+            ? i === encounter!.pick || encounter!.options[i] === encounter!.options[encounter!.pick]
+              ? {
+                  id: 'enc' + i,
+                  name: encounter!.options[i]!,
+                  tone: 'buy',
+                  badge: 'TAKE · ' + encounter!.options[i],
+                  why: encounter!.why,
+                  rect: r,
+                }
+              : { id: 'enc' + i, name: encounter!.options[i]!, tone: 'skip', badge: 'Skip', why: '', rect: r }
+            : null,
+        )
+      : verdicts.map((v, i) =>
+          v && places[i] ? { id: v.id, name: nameOf(v.id), tone: v.tone, badge: v.badge, why: v.why, rect: places[i]! } : null,
+        );
   // the labels above the game only change when something really changed
   const key = JSON.stringify(slots);
   if (key !== lastHints) {
@@ -452,6 +623,8 @@ function paintRun(): void {
 }
 
 const MOVE_ICON: Record<Move['kind'], string> = {
+  take: '✔',
+  move: '↔',
   buy: '🛒',
   star: '★',
   merge: '⇪',
@@ -462,6 +635,24 @@ const MOVE_ICON: Record<Move['kind'], string> = {
   save: '⏸',
   wait: '⏳',
 };
+/** the path's tower, cell by cell: green = right place, orange = you have it elsewhere (move it), faded = still missing */
+function towerPlan(): string {
+  const tower = plan.cells.map((c) => c?.id ?? null);
+  const { target, moves } = placement(path, tower);
+  if (!target.some(Boolean)) return '';
+  return (
+    '<small class="d-plan-h">Tower plan · where each item goes</small><div class="d-plan" aria-label="Where the items go">' +
+    target
+      .map((id, i) => {
+        if (!id) return '<span class="d-pc empty" title="' + CELL_NAMES[i] + '"></span>';
+        const state = tower[i] === id ? 'ok' : moves.some((m) => m.id === id && m.to === i) ? 'move' : 'need';
+        return '<span class="d-pc ' + state + '" title="' + esc(nameOf(id) + ' · ' + CELL_NAMES[i]) + '">' + pic(id) + '</span>';
+      })
+      .join('') +
+    '</div>'
+  );
+}
+const pickBest = (p: { ids: (string | null)[] }) => judgePick(p.ids, [...owned().map((c) => c.id), ...bench], path, allPaths);
 function paintCoach(): void {
   const moves = decide({
     tower: plan.cells.map((c) => c?.id ?? null),
@@ -471,6 +662,8 @@ function paintCoach(): void {
     hud,
     day: plan.day,
     shopOpen: shop.some(Boolean),
+    pick: pick && pickBest(pick) ? { id: pick.ids[pickBest(pick)!.best]!, why: pickBest(pick)!.why } : null,
+    encounter: encounter ? { option: encounter.options[encounter.pick] ?? '', text: encounter.text, why: encounter.why } : null,
   });
   const [now, ...then] = moves;
   put(
@@ -547,6 +740,7 @@ function paintCoach(): void {
               '</span>'
             : '') +
           '</div>' +
+          towerPlan() +
           (others.length
             ? '<details class="d-others"><summary>Other paths (' +
               others.length +
@@ -686,7 +880,7 @@ function init(): void {
       state = s;
       paintStatus();
     });
-    window.setInterval(() => void scan(), 1500);
+    window.setInterval(() => void scan(), 700);
   }
   coach();
   paintRun();

@@ -175,3 +175,20 @@ export function benchWindows(): [number, number, number, number][] {
   for (let at = x; at + size <= x + w + 1; at += step) out.push([at, y, size, h]);
   return out;
 }
+
+/** an encounter: two option panels, the option's name on top of each (at 1915×1079) */
+export const ENCOUNTER_PANELS: [number, number, number, number][] = [
+  [710, 150, 775, 292],
+  [710, 480, 775, 292],
+];
+export const ENCOUNTER_TITLES: [number, number, number, number][] = [
+  [712, 152, 600, 58],
+  [712, 482, 600, 58],
+];
+
+/** a pick screen: choose one of three items (at 1915×1079) */
+export const PICK_BOXES: [number, number, number, number][] = [
+  [735, 340, 210, 207],
+  [1086, 340, 210, 207],
+  [1438, 340, 210, 207],
+];

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { choosePath, decide, judgeShop, paths, tips } from '../renderer/coach';
+import { choosePath, decide, decideEncounter, judgePick, judgeShop, matchEncounter, paths, placement, tips } from '../renderer/coach';
 import { Stable } from '../renderer/stable';
 
 // items of the "Nightfall · Growth" (Dark) build
@@ -104,5 +104,86 @@ describe('one clear instruction', () => {
     const m = decide({ ...base, verdicts: [], hud: {}, shopOpen: false });
     expect(m[0]!.kind).toBe('wait');
     expect(m[0]!.title).toMatch(/^Next: /);
+  });
+});
+
+describe('encounters', () => {
+  it('knows the encounter from slightly misread titles', () => {
+    const seen = matchEncounter(['Healinq Touch', 'Blessinq'], 3);
+    expect(seen?.enc.name).toBe('Priest');
+    expect(seen?.panels).toEqual([0, 1]);
+    expect(matchEncounter(['zzzz', 'qqqq'], 3)).toBeNull();
+    // one title is enough
+    expect(matchEncounter(['Healing Touch', ''], 3)?.panels).toEqual([0, 1]);
+  });
+
+  it('takes income early, HP when lives are low', () => {
+    const seen = matchEncounter(['Healing Touch', 'Blessing'], 3)!;
+    const early = decideEncounter(seen, { tower, path: null, hud: { day: 3, lives: [10, 10] }, day: 3 });
+    expect(seen.enc.o[early.pick]![0]).toBe('Blessing');
+    expect(early.why).toMatch(/income/);
+  });
+
+  it('follows the build rules of the site (crit build takes the crit upgrade)', () => {
+    const seen = matchEncounter(['Upgrade!', 'Heavy Armor'], 4)!;
+    expect(seen.enc.name).toBe('Blacksmith');
+    const critPath = paths(['ruby_knife', 'emerald_sword', 'shardfang'], '', 1)[0] ?? null;
+    const d = decideEncounter(seen, {
+      tower: ['ruby_knife', 'emerald_sword', 'shardfang', null, null, null],
+      path: critPath,
+      hud: {},
+      day: 4,
+    });
+    expect(['Upgrade!', 'Heavy Armor']).toContain(seen.enc.o[d.pick]![0]);
+    expect(d.why.length).toBeGreaterThan(5);
+  });
+
+  it('the instruction says which option to take', () => {
+    const m = decide({
+      tower,
+      bench: [],
+      verdicts: [],
+      path: null,
+      hud: {},
+      day: 3,
+      shopOpen: false,
+      encounter: { option: 'Blessing', text: '', why: 'income early pays back every day' },
+    });
+    expect(m[0]).toMatchObject({ kind: 'take', title: 'Take Blessing' });
+  });
+});
+
+describe('where items go', () => {
+  const all = paths(have, '', 3);
+  const path = choosePath(all, null)!;
+  const target = path.b.build.cells.map((c) => c?.id ?? null);
+
+  it('finds items in the wrong cell', () => {
+    // the path's first item put into the last cell
+    const tower = [null, null, null, null, null, target[0]];
+    const p = placement(path, tower);
+    expect(p.moves[0]).toEqual({ id: target[0], from: 5, to: 0 });
+    const m = decide({ tower, bench: [], verdicts: [], path, hud: {}, day: 6, shopOpen: false });
+    expect(m.some((x) => x.kind === 'move' && x.title.endsWith('top left'))).toBe(true);
+  });
+
+  it('says where a bought item goes', () => {
+    const missing = target.find((id) => id && !have.includes(id))!;
+    const m = decide({ tower, bench: [], verdicts: judgeShop([missing], have, path, all), path, hud: {}, day: 6, shopOpen: true });
+    expect(m[0]!.detail).toMatch(/It goes (top|middle|bottom) (left|right) in your tower/);
+  });
+});
+
+describe('pick screens', () => {
+  const all = paths(have, '', 3);
+  const path = choosePath(all, null)!;
+  it('takes what the build needs', () => {
+    const missing = path.missing[0]!;
+    expect(judgePick(['chopper', missing, 'bone_club'], have, path, all)?.best).toBe(1);
+  });
+  it('nothing fits: the most valuable', () => {
+    const r = judgePick(['chopper', 'bone_club', 'warrior_shield'], have, path, all)!;
+    expect(r.why).toMatch(/worth the most/);
+    expect(r.best).toBe(2);
   });
 });

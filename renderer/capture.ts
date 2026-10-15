@@ -12,7 +12,7 @@ const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
 
 function start(): Promise<HTMLVideoElement> {
   starting ??= (async () => {
-    const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 2, max: 4 } }, audio: false });
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 4, max: 6 } }, audio: false });
     const v = document.createElement('video');
     v.muted = true;
     v.srcObject = stream;
