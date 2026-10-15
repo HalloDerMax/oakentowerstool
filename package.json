@@ -2,7 +2,7 @@
   "name": "oaken-tower-overlay",
   "productName": "Oaken Tower Overlay",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Desktop overlay for Oaken Tower: your planned build and shop tips on top of the game",
   "main": "main.cjs",
   "scripts": {
