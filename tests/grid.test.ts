@@ -16,6 +16,8 @@ describe('tower cells found by their frames', () => {
   for (const [file, want] of [
     ['tower1.png', ['refined_spear', 'wildfire', null, null, null, null]],
     ['tower2.png', ['sharpsteel', 'dragonbone', 'bone_club', 'bio_bomb', 'eclipse', 'novice_blade']],
+    // a poison slot (green frame), stars, a tooltip over the right column
+    ['tower3.png', ['how_to_grow', 'petal_staff', null, 'elven_shield', 'refined_spear', 'hook']],
   ] as const)
     for (const [dx, dy] of [
       [0, 0],
@@ -25,7 +27,8 @@ describe('tower cells found by their frames', () => {
       it(
         file + ' moved ' + dx + ',' + dy,
         () => {
-          const img = crop(readPng('tests/fixtures/screens/' + file), 30 + dx, 30 + dy, 420, 600);
+          const src = readPng('tests/fixtures/screens/' + file);
+          const img = crop(src, 30 + dx, 30 + dy, src.w - 60, src.h - 60);
           const s = snapTower(img, 1);
           expect(s).not.toBeNull();
           expect(s!.cells.map((c) => read(img, c))).toEqual(want);

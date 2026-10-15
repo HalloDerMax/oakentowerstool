@@ -300,7 +300,8 @@ async function identifyAll(
 
 /* ---------- reading the screen ---------- */
 const calmShop = new Stable(2, 2);
-const calmTower = new Stable(2, 2);
+// the tower rarely empties: a tooltip or the mouse over a cell does not clear its item
+const calmTower = new Stable(2, 6);
 const calmBench = new Stable(2, 2);
 const calmPerk = new Stable(2, 4);
 const calmPick = new Stable(2, 2);

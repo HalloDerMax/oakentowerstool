@@ -57,7 +57,7 @@ const MIN_GAP = 0.02;
 /** candidates kept after the coarse pass */
 const SHORTLIST = 14;
 /** the fast path keeps the item seen before at this score or better */
-const KEEP_SCORE = 0.75;
+const KEEP_SCORE = 0.85;
 
 /** area-average resize (also handles upscaling) */
 export function resize(src: Img, w: number, h: number): Img {
@@ -353,6 +353,8 @@ export function identify(
     .sort((a, b) => a.score - b.score);
   const top = scored[0];
   // unknown when it explains too little, or when the runner-up is just as good
-  if (!top || top.score > maxScore || (scored[1] && scored[1].score - top.score < MIN_GAP)) return null;
+  // a little above the limit is still fine when no other item comes close (thin items, a tooltip over a corner)
+  const gap = (scored[1]?.score ?? Infinity) - (top?.score ?? 0);
+  if (!top || top.score > maxScore + 0.05 || (top.score > maxScore && gap < 0.08) || gap < MIN_GAP) return null;
   return { id: top.id, score: top.score, next: scored[1]?.score ?? Infinity, size: top.size };
 }
