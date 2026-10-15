@@ -12,6 +12,7 @@
 const {
   app,
   BrowserWindow,
+  session,
   desktopCapturer,
   globalShortcut,
   ipcMain,
@@ -381,6 +382,19 @@ app.whenReady().then(() => {
     return net.fetch(pathToFileURL(file).toString());
   });
 
+  // the panel's screen stream: answered here without a picker, only for our own page, with the game display
+  session.defaultSession.setDisplayMediaRequestHandler((req, cb) => {
+    const from = req.frame ? req.frame.url : '';
+    if (!(from.startsWith('oaken://app/') || (DEV_URL && from.startsWith(DEV_URL)))) return cb({});
+    desktopCapturer
+      .getSources({ types: ['screen'] })
+      .then((list) => {
+        const d = gameDisplay();
+        const src = list.find((s) => String(s.display_id) === String(d.id)) || list[0];
+        cb(src ? { video: src } : {});
+      })
+      .catch(() => cb({}));
+  });
   ipcMain.handle('capture', () => capture());
   ipcMain.handle('plan:get', () => plan);
   ipcMain.on('plan:set', (_e, p) => setPlan(p, 'app'));

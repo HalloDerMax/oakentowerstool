@@ -1,6 +1,6 @@
 /* Text reader for the HUD (Tesseract, offline: its files ship with the app under ocr/). */
 import { createWorker, OEM, PSM, type Worker as OcrWorker } from 'tesseract.js';
-import { HUD_FIELDS, inkOnPaper, type HudKey } from './hud';
+import { HUD_FIELDS, inkOnPaper, readable, type HudKey, type InkMode } from './hud';
 import { resize, type Img } from './recognize';
 
 let worker: Promise<OcrWorker> | null = null;
@@ -36,12 +36,16 @@ export async function readFields(crops: Partial<Record<HudKey, Img>>, fp: (i: Im
     }
     // 3× bigger and black on white: what the reader likes
     const big = resize(img, img.w * 3, img.h * 3);
-    canvas.width = big.w;
-    canvas.height = big.h;
-    canvas.getContext('2d')!.putImageData(new ImageData(inkOnPaper(big, f.ink) as Uint8ClampedArray<ArrayBuffer>, big.w, big.h), 0, 0);
     await w.setParameters({ tessedit_char_whitelist: f.chars, tessedit_pageseg_mode: PSM.SINGLE_LINE });
-    const r = await w.recognize(canvas);
-    const text = r.data.confidence >= 60 ? r.data.text.trim() : '';
+    const once = async (ink: InkMode) => {
+      canvas.width = big.w;
+      canvas.height = big.h;
+      canvas.getContext('2d')!.putImageData(new ImageData(inkOnPaper(big, ink) as Uint8ClampedArray<ArrayBuffer>, big.w, big.h), 0, 0);
+      const r = await w.recognize(canvas);
+      return r.data.confidence >= 60 ? r.data.text.trim() : '';
+    };
+    let text = await once(f.ink);
+    if (f.alt && !readable(f.key, text)) text = await once(f.alt);
     memo.set(key, text);
     out[f.key] = text;
   }

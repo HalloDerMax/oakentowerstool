@@ -1,5 +1,5 @@
 /* Hints layer: a transparent, click-through window over the game display.
- *   normal:      badges above the shop items ("BUY · 82% win", "ok", "skip")
+ *   normal:      a label on every shop item: BUY · <build>, STAR ↑, Switch · <build>, Skip
  *   calibrating: one box per shop row and one around your tower; saved as fractions of the display
  */
 import '../shared/src/styles/tokens.css';
@@ -20,25 +20,34 @@ let slots: (HintSlot | null)[] = [];
 const pct = (n: number) => (n * 100).toFixed(3) + '%';
 const place = (r: Rect) => 'left:' + pct(r.x) + ';top:' + pct(r.y) + ';width:' + pct(r.w) + ';height:' + pct(r.h);
 
-function badges(): string {
-  return slots
-    .map((s) => {
-      if (!s) return '';
-      const text =
-        (s.tone === 'buy' ? 'BUY' : s.tone === 'good' ? 'Good' : 'Skip') +
-        (s.tone !== 'skip' ? ' · ' + (s.win > 0 ? Math.round(s.win * 100) + '% win' : Math.round(s.share * 100) + '% HP') : '');
-      return (
-        '<div class="h-slot t-' +
-        s.tone +
-        '" style="' +
-        place(s.rect) +
-        '"><span class="h-badge">' +
-        esc(text) +
-        (s.how && s.how !== 'new' && s.tone !== 'skip' ? '<small>' + esc(s.how) + '</small>' : '') +
-        '</span></div>'
-      );
-    })
-    .join('');
+/* Badges: one calm label per shop place. A label is only touched when its text changes; a new one fades in
+ * once, the rest stay still. */
+const badgeLayer = document.createElement('div');
+badgeLayer.id = 'h-badges';
+document.body.appendChild(badgeLayer);
+const shownKey: string[] = [];
+function paintBadges(): void {
+  const cal = !!state?.calibrating;
+  badgeLayer.hidden = cal;
+  const n = Math.max(slots.length, badgeLayer.children.length);
+  for (let i = 0; i < n; i++) {
+    const s = slots[i] ?? null;
+    const key = s ? s.tone + '|' + s.badge + '|' + place(s.rect) : '';
+    let el = badgeLayer.children[i] as HTMLElement | undefined;
+    if (!el) {
+      el = document.createElement('div');
+      badgeLayer.appendChild(el);
+    }
+    if (shownKey[i] === key) continue;
+    shownKey[i] = key;
+    if (!s) {
+      el.className = 'h-slot gone';
+      continue;
+    }
+    el.className = 'h-slot t-' + s.tone;
+    el.setAttribute('style', place(s.rect));
+    el.innerHTML = '<span class="h-badge">' + esc(s.badge) + '</span>';
+  }
 }
 
 /* ---------- calibration ---------- */
@@ -127,7 +136,8 @@ function norm(d: { x0: number; y0: number; x1: number; y1: number }): Rect {
 function render(): void {
   const cal = !!state?.calibrating;
   document.body.classList.toggle('cal', cal);
-  root.innerHTML = cal ? calibrationHtml() : badges();
+  root.innerHTML = cal ? calibrationHtml() : '';
+  paintBadges();
 }
 
 function startCal(): void {
@@ -210,7 +220,7 @@ if (api) {
   });
   api.onHints((d) => {
     slots = d.slots;
-    render();
+    paintBadges();
   });
   void api.state().then((s) => {
     state = s;

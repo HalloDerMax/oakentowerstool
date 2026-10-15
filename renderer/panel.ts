@@ -1,14 +1,16 @@
-/* Desktop overlay panel: the planner overlay plus the screen reading.
- * Every ~1.5 s it asks the app for the calibrated shop / tower boxes, finds the items in them and
- *   - fills your tower (when "auto tower" is on),
- *   - rates every shop item for your tower and sends the badges to the hints layer above the game.
+/* Desktop overlay panel: the coach.
+ * About every 1.5 s one frame of the game is read (shop, tower, bench, perk; the HUD every other time):
+ *   - readings are calmed (a place changes only when several frames agree),
+ *   - your tower, perk, day and level are taken over (switch "auto read"),
+ *   - the build paths that fit your items are listed; you pick one (or the best is used),
+ *   - every shop item gets a clear label: BUY for your build, STAR ↑, Switch to another path, or Skip,
+ *   - the coach lists what to do now (buy, merge, swap, sell, roll or level).
  */
 import '../shared/src/styles/tokens.css';
 import '../shared/src/styles/base.css';
 import '../shared/src/styles/overlay.css';
 import './desktop.css';
 
-import { evaluate } from '../shared/src/core/optimize';
 import { sanitizePlan } from '../shared/src/core/planlink';
 import type { Build } from '../shared/src/core/types';
 import { ITEMS, ITEM_BY_ID } from '../shared/src/data/items';
@@ -17,20 +19,28 @@ import { levelOnDay, PHASES } from '../shared/src/data/progression';
 import { slug } from '../shared/src/data/slug';
 import { defaultState } from '../shared/src/state/store';
 import { esc } from '../shared/src/ui/dom';
-import { bestFits } from '../shared/src/ui/fits';
 import { installIconFallback } from '../shared/src/ui/icon';
 import { rateSuggestions, type Rated } from '../shared/src/ui/obtainview';
 import { mountOverlay, type OverlayView } from '../shared/src/ui/overlay';
-import { runSuggest } from '../shared/src/ui/simclient';
-import { bgraToRgba, cells as splitCells, type Facing, type Img, type Match } from './recognize';
-import type { RecRequest, RecResponse } from './recognize.worker';
-import type { DesktopApi, DesktopState, HintSlot } from './bridge';
+import { runGrow, runSuggest } from '../shared/src/ui/simclient';
+import type { OurBuild } from '../shared/src/ui/buildguide';
+import type { DesktopApi, DesktopState, HintSlot, Rect } from './bridge';
+import { grab, stop as stopStream } from './capture';
+import { choosePath, judgeShop, mainPacks, pathName, paths, tips, type HudInfo, type Path, type Verdict } from './coach';
+import { benchWindows, HUD_FIELDS, parseHud, PERK_BOX, placeOnScreen, type HudKey } from './hud';
+import type { Facing, Img, Match } from './recognize';
+import type { Group, RecRequest, RecResponse } from './recognize.worker';
+import { Stable } from './stable';
 
 const api = (window as unknown as { oakenDesktop?: DesktopApi }).oakenDesktop;
 const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector<T>(s)!;
+const nameOf = (id: string) => ITEM_BY_ID[id]?.name ?? id;
+const pic = (id: string, cls = '') =>
+  '<img class="' + cls + '" src="' + import.meta.env.BASE_URL + 'img/' + slug(nameOf(id)) + '.png" alt="" title="' + esc(nameOf(id)) + '">';
 
-/* ---------- plan state: kept by the app and shared live with the website planner (when linked) ---------- */
+/* ---------- plan: kept by the app, shared live with the website planner (when linked) ---------- */
 const KEY = 'ot-desktop-plan';
+const PATH_KEY = 'ot-desktop-path';
 const CELLS = 6;
 interface Plan {
   cells: ({ id: string; star: number } | null)[];
@@ -59,7 +69,14 @@ const save = () => {
     /* forgets */
   }
 };
-/** a plan from the app (start, or a change made in the website planner) */
+let picked: string | null = (() => {
+  try {
+    return localStorage.getItem(PATH_KEY);
+  } catch {
+    return null;
+  }
+})();
+
 function applyPlan(x: unknown): void {
   const p = sanitizePlan(
     x,
@@ -72,29 +89,28 @@ function applyPlan(x: unknown): void {
   plan.day = p.day;
   const sel = document.querySelector<HTMLSelectElement>('#d-perk');
   if (sel) sel.value = plan.perk;
-  shopKey = '';
-  refresh();
-  clearTimeout(timer);
-  timer = window.setTimeout(() => void compute(), 250);
+  afterChange(false);
 }
 const phaseOf = (day: number) => PHASES.find((p) => day >= p.days[0] && day <= p.days[1]) ?? PHASES[PHASES.length - 1]!;
 const owned = () => plan.cells.filter(Boolean) as { id: string; star: number }[];
-function planBuild(cells = plan.cells): Build {
+let hud: HudInfo = {};
+const level = () => hud.level ?? levelOnDay(plan.day);
+function planBuild(): Build {
   const ph = phaseOf(plan.day);
   return {
     ...defaultState(),
-    cells: cells.map((c) => (c ? { ...c } : null)),
+    cells: plan.cells.map((c) => (c ? { ...c } : null)),
     slotAt: new Array(CELLS).fill(null),
     perks: plan.perk ? [plan.perk] : [],
     potions: [],
-    level: levelOnDay(plan.day),
+    level: level(),
     name: 'Overlay',
     day: plan.day,
     enemy: { ...ph.enemy },
   };
 }
 
-/* ---------- best next buys (same as the planner) ---------- */
+/* ---------- best next buys (simulated in the background worker, only when the plan changes) ---------- */
 let next: Rated[] | null = null;
 let busy = false;
 let seq = 0;
@@ -119,51 +135,98 @@ async function compute(): Promise<void> {
   refresh();
 }
 let timer = 0;
-function changed(): void {
-  save();
+/** something in the plan changed (here, in the game or on the website): share it, coach again, simulate later */
+function afterChange(share = true): void {
+  if (share) save();
+  coach();
   refresh();
-  shopKey = '';
   clearTimeout(timer);
-  timer = window.setTimeout(() => void compute(), 250);
+  timer = window.setTimeout(() => void compute(), 400);
 }
 
 function view(): OverlayView {
   const ph = phaseOf(plan.day);
   const p = plan.perk ? PERK_BY_ID[plan.perk] : undefined;
-  const g = owned().length
-    ? bestFits(
-        owned().map((x) => x.id),
-        plan.perk,
-      )[0]
-    : undefined;
   return {
     day: plan.day,
-    level: levelOnDay(plan.day),
+    level: level(),
     phase: ph.name,
     enemyHp: ph.enemy.hp,
     perk: p ? { id: p.id, name: p.name } : undefined,
     cells: plan.cells,
     next,
     busy,
-    goal: g ? { name: g.b.name, missing: g.missing } : undefined,
+    goal: path ? { name: path.b.name, missing: path.missing } : undefined,
+    gold: hud.gold,
+    xpToNext: hud.xp ? Math.max(0, hud.xp[1] - hud.xp[0]) : undefined,
   };
 }
 
-/* ---------- screen reading ---------- */
+/* ---------- recognition worker ---------- */
 let state: DesktopState | null = null;
-let iconsSent: Promise<void> | null = null;
 const rec = new Worker(new URL('./recognize.worker.ts', import.meta.url), { type: 'module' });
 let recSeq = 0;
-/** last result per slot, keyed by a fingerprint of its pixels: unchanged slots are not searched again */
-const memo = new Map<string, Match | null>();
-function fingerprint(img: Img): string {
-  let h = 2166136261;
-  // every 7th byte is enough to notice a change
-  for (let i = 0; i < img.data.length; i += 7) h = Math.imul(h ^ (img.data[i]! >> 3), 16777619);
-  return img.w + 'x' + img.h + ':' + (h >>> 0).toString(36);
+let picturesSent: Promise<void> | null = null;
+function sendPictures(): Promise<void> {
+  if (picturesSent) return picturesSent;
+  const c = document.createElement('canvas');
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  const load = (list: { id: string; name: string }[], group: Group) => {
+    const icons: { id: string; img: Img }[] = [];
+    return Promise.all(
+      list.map(
+        (it) =>
+          new Promise<void>((res) => {
+            const img = new Image();
+            img.onload = () => {
+              c.width = img.naturalWidth;
+              c.height = img.naturalHeight;
+              ctx.clearRect(0, 0, c.width, c.height);
+              ctx.drawImage(img, 0, 0);
+              const d = ctx.getImageData(0, 0, c.width, c.height);
+              icons.push({ id: it.id, img: { w: d.width, h: d.height, data: d.data } });
+              res();
+            };
+            img.onerror = () => res();
+            img.src = import.meta.env.BASE_URL + 'img/' + slug(it.name) + '.png';
+          }),
+      ),
+    ).then(() => rec.postMessage({ op: 'icons', group, icons } satisfies RecRequest));
+  };
+  picturesSent = Promise.all([load(ITEMS, 'items'), load(PERKS, 'perks')]).then(() => undefined);
+  return picturesSent;
 }
-async function identifyAll(slots: Img[], facing: Facing): Promise<(Match | null)[]> {
-  const keys = slots.map((s) => facing + fingerprint(s));
+
+/** coarse fingerprint (8×8 average, few colour steps): small animations like flames do not count as a change */
+function fingerprint(img: Img): string {
+  const g = 8,
+    out: number[] = [];
+  for (let gy = 0; gy < g; gy++)
+    for (let gx = 0; gx < g; gx++) {
+      let r = 0,
+        gg = 0,
+        b = 0,
+        n = 0;
+      const x0 = Math.floor((gx * img.w) / g),
+        x1 = Math.floor(((gx + 1) * img.w) / g),
+        y0 = Math.floor((gy * img.h) / g),
+        y1 = Math.floor(((gy + 1) * img.h) / g);
+      for (let y = y0; y < y1; y += 2)
+        for (let x = x0; x < x1; x += 2) {
+          const i = (y * img.w + x) * 4;
+          r += img.data[i]!;
+          gg += img.data[i + 1]!;
+          b += img.data[i + 2]!;
+          n++;
+        }
+      n ||= 1;
+      out.push(((r / n) >> 5) * 64 + ((gg / n) >> 5) * 8 + ((b / n) >> 5));
+    }
+  return img.w + 'x' + img.h + ':' + out.join('.');
+}
+const memo = new Map<string, Match | null>();
+async function identifyAll(slots: Img[], facing: Facing, group: Group = 'items'): Promise<(Match | null)[]> {
+  const keys = slots.map((s) => group + facing + fingerprint(s));
   const todo = slots.map((s, i) => (memo.has(keys[i]!) ? null : s));
   if (todo.some(Boolean)) {
     const id = ++recSeq;
@@ -174,51 +237,45 @@ async function identifyAll(slots: Img[], facing: Facing): Promise<(Match | null)
         resolve(e.data);
       };
       rec.addEventListener('message', on);
-      rec.postMessage({ op: 'identify', id, slots: todo, facing } satisfies RecRequest);
+      rec.postMessage({ op: 'identify', id, group, slots: todo, facing } satisfies RecRequest);
     });
     res.matches.forEach((m, i) => {
       if (todo[i]) memo.set(keys[i]!, m);
     });
-    if (memo.size > 400) memo.clear();
+    if (memo.size > 800) memo.clear();
   }
   return keys.map((k) => memo.get(k) ?? null);
 }
-let scanMsg = 'Not calibrated';
-let shop: ({ id: string; score: number } | null)[] = [];
-let shopKey = '';
-let verdicts: (HintSlot | null)[] = [];
 
-/** the item pictures go to the recognition worker once */
-function sendIcons(): Promise<void> {
-  if (iconsSent) return iconsSent;
-  const c = document.createElement('canvas');
-  const ctx = c.getContext('2d', { willReadFrequently: true })!;
-  const icons: { id: string; img: Img }[] = [];
-  iconsSent = Promise.all(
-    ITEMS.map(
-      (it) =>
-        new Promise<void>((res) => {
-          const img = new Image();
-          img.onload = () => {
-            c.width = img.naturalWidth;
-            c.height = img.naturalHeight;
-            ctx.clearRect(0, 0, c.width, c.height);
-            ctx.drawImage(img, 0, 0);
-            const d = ctx.getImageData(0, 0, c.width, c.height);
-            icons.push({ id: it.id, img: { w: d.width, h: d.height, data: d.data } });
-            res();
-          };
-          img.onerror = () => res();
-          img.src = import.meta.env.BASE_URL + 'img/' + slug(it.name) + '.png';
-        }),
-    ),
-  ).then(() => rec.postMessage({ op: 'icons', icons } satisfies RecRequest));
-  return iconsSent;
+/* ---------- reading the screen ---------- */
+const calmShop = new Stable(2, 3);
+const calmTower = new Stable(2, 3);
+const calmBench = new Stable(2, 2);
+const calmPerk = new Stable(2, 4);
+let shop: (string | null)[] = [];
+let bench: string[] = [];
+let scanMsg = 'Not calibrated';
+let tick = 0;
+
+/** a little more than the box, so an item that is not perfectly centred is still whole */
+const grow = (r: Rect, k = 0.06): Rect => ({ x: r.x - r.w * k, y: r.y - r.h * k, w: r.w * (1 + 2 * k), h: r.h * (1 + 2 * k) });
+function shopPlaces(): Rect[] {
+  return (state?.config.shop ?? []).flatMap((s) =>
+    Array.from({ length: s.n }, (_, i) => ({ x: s.x + (s.w / s.n) * i, y: s.y, w: s.w / s.n, h: s.h })),
+  );
+}
+function towerCells(): Rect[] {
+  const t = state?.config.tower;
+  if (!t) return [];
+  return Array.from({ length: t.cols * t.rows }, (_, k) => ({
+    x: t.x + (t.w / t.cols) * (k % t.cols),
+    y: t.y + (t.h / t.rows) * Math.floor(k / t.cols),
+    w: t.w / t.cols,
+    h: t.h / t.rows,
+  })).slice(0, CELLS);
 }
 
-const toImg = (c: { w: number; h: number; data: Uint8Array; bgra?: boolean } | null): Img | null =>
-  c ? { w: c.w, h: c.h, data: c.bgra ? bgraToRgba(c.data) : c.data } : null;
-
+let ocr: typeof import('./ocr') | null = null;
 let scanning = false;
 async function scan(): Promise<void> {
   if (!api || scanning || !state?.config.scan) return;
@@ -228,115 +285,128 @@ async function scan(): Promise<void> {
     return paintStatus();
   }
   scanning = true;
+  tick++;
   try {
-    await sendIcons();
-    const shot = await api.capture();
-    if (!shot) return;
-    if (cfg.shop?.length) {
-      // every row split into its places; the game shows shop items as drawn
-      const slots = shot.shop.flatMap((c, r) => {
-        const img = toImg(c);
-        return img ? splitCells(img, cfg.shop![r]!.n, 1) : [];
+    await sendPictures();
+    const at = placeOnScreen(cfg);
+    const places = shopPlaces(),
+      cells = towerCells(),
+      windows = benchWindows().map(at);
+    const readHud = cfg.autoTower && tick % 2 === 1;
+    const fields = readHud ? HUD_FIELDS.map((f) => at(f.box)) : [];
+    const perkBox = cfg.autoTower ? [at(PERK_BOX)] : [];
+    const imgs = await grab([...places.map((r) => grow(r)), ...cells.map((r) => grow(r)), ...windows, ...perkBox, ...fields]);
+    if (!imgs.length) return;
+    let k = 0;
+    const take = (n: number) => imgs.slice(k, (k += n));
+    const shopImgs = take(places.length),
+      towerImgs = take(cells.length),
+      benchImgs = take(windows.length),
+      perkImgs = take(perkBox.length),
+      hudImgs = take(fields.length);
+
+    // shop as drawn; tower and bench mirrored (that is how the game shows your own items)
+    const [shopRead, towerRead, benchRead, perkRead] = await Promise.all([
+      identifyAll(shopImgs, 'normal'),
+      identifyAll(towerImgs, 'mirrored'),
+      identifyAll(benchImgs, 'mirrored'),
+      identifyAll(perkImgs, 'normal', 'perks'),
+    ]);
+    const newShop = calmShop.push(shopRead.map((m) => m?.id ?? null));
+    const benchCalm = calmBench.push(benchRead.map((m) => m?.id ?? null));
+    // neighbouring windows see the same item twice
+    const newBench = benchCalm.filter((id, i): id is string => !!id && benchCalm[i - 1] !== id);
+    let planChanged = false;
+    if (cfg.autoTower) {
+      calmTower.push(towerRead.map((m) => m?.id ?? null)).forEach((id, i) => {
+        const cur = plan.cells[i] ?? null;
+        if ((cur?.id ?? null) === id) return;
+        // a new item keeps no stars; the same item keeps the stars you set
+        plan.cells[i] = id ? { id, star: 0 } : null;
+        planChanged = true;
       });
-      shop = await identifyAll(slots, 'normal');
-      const key = shop.map((m) => m?.id ?? '-').join(',') + '|' + plan.cells.map((c) => (c ? c.id + c.star : '-')).join(',');
-      if (key !== shopKey) {
-        shopKey = key;
-        void rateShop(key);
+      const perk = calmPerk.push(perkRead.map((m) => m?.id ?? null))[0];
+      if (perk && perk !== plan.perk) {
+        plan.perk = perk;
+        $<HTMLSelectElement>('#d-perk').value = perk;
+        planChanged = true;
       }
     }
-    const towerImg = toImg(shot.tower);
-    if (towerImg && cfg.tower && cfg.autoTower) {
-      // the game draws the items in your tower mirrored
-      const seen = await identifyAll(splitCells(towerImg, cfg.tower.cols, cfg.tower.rows), 'mirrored');
-      let diff = false;
-      seen.slice(0, CELLS).forEach((m, i) => {
-        const cur = plan.cells[i] ?? null;
-        if ((m?.id ?? null) === (cur?.id ?? null)) return;
-        plan.cells[i] = m ? { id: m.id, star: 0 } : null;
-        diff = true;
-      });
-      if (diff) changed();
+    if (readHud && hudImgs.length) {
+      ocr ??= await import('./ocr');
+      const text = await ocr.readFields(
+        Object.fromEntries(HUD_FIELDS.map((f, i) => [f.key, hudImgs[i]!])) as Partial<Record<HudKey, Img>>,
+        fingerprint,
+      );
+      const h = parseHud(text);
+      if (JSON.stringify(h) !== JSON.stringify(hud)) {
+        hud = { ...hud, ...h };
+        if (h.day && Math.min(16, h.day) !== plan.day) {
+          plan.day = Math.min(16, h.day);
+          planChanged = true;
+        }
+        paintRun();
+        refresh();
+      }
     }
+    const shopChanged = newShop.join() !== shop.join() || newBench.join() !== bench.join();
+    shop = newShop;
+    bench = newBench;
+    if (planChanged) afterChange();
+    else if (shopChanged) coach();
     const found = shop.filter(Boolean).length;
-    scanMsg = cfg.shop?.length
-      ? found
-        ? found + ' shop item' + (found > 1 ? 's' : '') + ' seen'
-        : 'Shop: nothing seen'
-      : 'Scanning tower';
+    scanMsg = found
+      ? found + ' in shop' + (bench.length ? ' · ' + bench.length + ' on bench' : '')
+      : cfg.shop?.length
+        ? 'Shop closed'
+        : 'Reading tower';
   } catch (e) {
-    scanMsg = 'Scan failed: ' + (e instanceof Error ? e.message : String(e));
+    scanMsg = 'Screen not readable: ' + (e instanceof Error ? e.message : String(e));
+    stopStream();
   } finally {
     scanning = false;
     paintStatus();
   }
 }
 
-/** rate every shop item for the current tower: add it to a free cell, star an owned copy, or replace the weakest fit */
-async function rateShop(key: string): Promise<void> {
-  const ids = shop.map((m) => m?.id ?? null);
-  const base = evaluate(planBuild(), { seeds: 3 });
-  const free = plan.cells.findIndex((c) => !c);
-  const res: (HintSlot | null)[] = [];
-  for (const id of ids) {
-    await new Promise((r) => setTimeout(r, 0));
-    if (key !== shopKey) return;
-    if (!id) {
-      res.push(null);
-      continue;
-    }
-    const nm = ITEM_BY_ID[id]?.name ?? id;
-    const at = plan.cells.findIndex((c) => c?.id === id && c.star < 3);
-    let best = { gain: -Infinity, win: 0, share: 0, how: '' };
-    const tryCells = (cells: Plan['cells'], how: string) => {
-      const ev = evaluate(planBuild(cells), { seeds: 3 });
-      const gain = ev.score - base.score;
-      if (gain > best.gain) best = { gain, win: ev.winRate, share: ev.dmgShare, how };
-    };
-    if (at >= 0) {
-      // one more copy: counts towards the next star (2^star copies)
-      const c = plan.cells.slice();
-      c[at] = { id, star: plan.cells[at]!.star + 1 };
-      tryCells(c, 'copy for ' + (plan.cells[at]!.star + 1) + '★');
-      best.gain /= 2 ** plan.cells[at]!.star;
-    }
-    if (free >= 0) {
-      const c = plan.cells.slice();
-      c[free] = { id, star: 0 };
-      tryCells(c, 'new');
-    } else
-      for (let i = 0; i < CELLS; i++) {
-        if (plan.cells[i]?.id === id) continue;
-        const c = plan.cells.slice();
-        c[i] = { id, star: 0 };
-        tryCells(c, 'replaces ' + (ITEM_BY_ID[plan.cells[i]!.id]?.name ?? ''));
-      }
-    res.push({
-      id,
-      name: nm,
-      gain: best.gain,
-      win: best.win,
-      share: best.share,
-      how: best.how,
-      tone: 'skip',
-      rect: { x: 0, y: 0, w: 0, h: 0 },
-    });
-  }
-  if (key !== shopKey) return;
-  // tones: the best positive one is "buy", other clear gains "good"
-  const top = Math.max(...res.map((r) => (r ? r.gain : -Infinity)));
-  // where each place is on screen: rows one after the other, each split evenly
-  const places = (state?.config.shop ?? []).flatMap((s) =>
-    Array.from({ length: s.n }, (_, i) => ({ x: s.x + (s.w / s.n) * i, y: s.y, w: s.w / s.n, h: s.h })),
+/* ---------- the coach ---------- */
+let allPaths: Path[] = [];
+let path: Path | null = null;
+let verdicts: (Verdict | null)[] = [];
+let lastHints = '';
+/** builds grown for the packs you play (background worker, only when your packs or perk change) */
+let grown: OurBuild[] = [];
+let growKey = '';
+function growFor(have: string[]): void {
+  const packs = mainPacks(have);
+  const key = packs.join('+') + '|' + plan.perk;
+  if (!packs.length || key === growKey) return;
+  growKey = key;
+  void runGrow(packs, plan.perk || null)
+    .then((r) => {
+      if (growKey !== key) return;
+      grown = r as unknown as OurBuild[];
+      coach();
+    })
+    .catch(() => undefined);
+}
+function coach(): void {
+  const have = [...owned().map((c) => c.id), ...bench];
+  growFor(have);
+  allPaths = paths(have, plan.perk, 3, grown);
+  path = choosePath(allPaths, picked);
+  verdicts = judgeShop(shop, have, path, allPaths);
+  const places = shopPlaces();
+  const slots: (HintSlot | null)[] = verdicts.map((v, i) =>
+    v && places[i] ? { id: v.id, name: nameOf(v.id), tone: v.tone, badge: v.badge, why: v.why, rect: places[i]! } : null,
   );
-  verdicts = res.map((r, i) => {
-    if (!r || !places[i]) return null;
-    r.tone = r.gain > 0.02 && r.gain === top ? 'buy' : r.gain > 0.02 ? 'good' : 'skip';
-    r.rect = places[i]!;
-    return r;
-  });
-  api?.sendHints({ slots: verdicts });
-  paintShop();
+  // the labels above the game only change when something really changed
+  const key = JSON.stringify(slots);
+  if (key !== lastHints) {
+    lastHints = key;
+    api?.sendHints({ slots });
+  }
+  paintCoach();
 }
 
 /* ---------- page ---------- */
@@ -357,35 +427,87 @@ function paintStatus(): void {
   if (document.activeElement !== range) range.value = String(op);
   $('#d-opv').textContent = op + '%';
 }
-function paintShop(): void {
-  const box = $('#d-shop');
-  const list = verdicts.filter(Boolean) as HintSlot[];
-  box.innerHTML = list.length
-    ? '<h4>Shop now</h4><ul>' +
+
+/** what the game shows: lives, trophies, gold, level, luck, next chest, shop odds */
+function paintRun(): void {
+  const h = hud;
+  const chip = (label: string, v: string | undefined, cls = '') =>
+    v === undefined ? '' : '<span class="d-chip ' + cls + '"><small>' + label + '</small><b>' + esc(v) + '</b></span>';
+  $('#d-run').innerHTML =
+    chip('Day', h.day?.toString()) +
+    chip('Lives', h.lives ? h.lives.join('/') : undefined, 'lives') +
+    chip('Trophies', h.trophies ? h.trophies.join('/') : undefined) +
+    chip('Gold', h.gold?.toString(), 'gold') +
+    chip('Level', h.level !== undefined ? h.level + (h.xp ? ' · ' + h.xp.join('/') : '') : undefined) +
+    chip('Luck', h.luck !== undefined ? h.luck + '%' : undefined) +
+    chip('Chest', h.chest, 'r-' + (h.chest ?? '')) +
+    chip('Shop', h.odds ? h.odds.join(' / ') + '%' : undefined);
+}
+
+function paintCoach(): void {
+  const list = tips({ tower: plan.cells.map((c) => c?.id ?? null), bench, verdicts, path, hud, day: plan.day });
+  $('#d-coach').innerHTML = list.length
+    ? '<h4>Coach</h4><ul>' +
       list
+        .slice(0, 5)
+        .map((t, i) => '<li' + (i === 0 ? ' class="first"' : '') + '>' + esc(t) + '</li>')
+        .join('') +
+      '</ul>'
+    : '<h4>Coach</h4><p class="d-dim">Open a shop in the game, or add your items.</p>';
+  $('#d-paths').innerHTML = allPaths.length
+    ? '<h4>Your path <small>(click to follow another)</small></h4>' +
+      allPaths
+        .map(
+          (p) =>
+            '<button type="button" class="d-path' +
+            (p === path ? ' on' : '') +
+            '" data-path="' +
+            esc(p.b.id) +
+            '"><span class="d-path-h"><b>' +
+            esc(pathName(p.b)) +
+            '</b><small>' +
+            esc(p.b.packs.join(' · ') || 'any pack') +
+            (p.b.tier ? ' · tier ' + esc(p.b.tier) : '') +
+            ' · ' +
+            Math.round(p.done * 100) +
+            '% done</small></span>' +
+            (p.missing.length
+              ? '<span class="d-need"><small>needs</small>' +
+                p.missing
+                  .slice(0, 6)
+                  .map((id) => pic(id))
+                  .join('') +
+                '</span>'
+              : '') +
+            '</button>',
+        )
+        .join('')
+    : '';
+  const shopList = verdicts.filter((v): v is Verdict => !!v);
+  $('#d-shop').innerHTML = shopList.length
+    ? '<h4>Shop now</h4><ul>' +
+      shopList
         .map(
           (v) =>
             '<li class="t-' +
             v.tone +
-            '"><img src="' +
-            import.meta.env.BASE_URL +
-            'img/' +
-            slug(v.name) +
-            '.png" alt=""><span><b>' +
-            esc(v.name) +
+            '">' +
+            pic(v.id) +
+            '<span><b>' +
+            esc(nameOf(v.id)) +
             '</b><small>' +
-            esc(label(v)) +
+            esc(v.why) +
             '</small></span><em>' +
-            (v.tone === 'buy' ? 'BUY' : v.tone === 'good' ? 'ok' : 'skip') +
+            esc(v.badge) +
             '</em></li>',
         )
         .join('') +
-      '</ul>'
-    : '';
+      '</ul>' +
+      (bench.length ? '<h4>Bench</h4><p class="d-bench">' + bench.map((id) => pic(id)).join('') + '</p>' : '')
+    : bench.length
+      ? '<h4>Bench</h4><p class="d-bench">' + bench.map((id) => pic(id)).join('') + '</p>'
+      : '';
 }
-const label = (v: HintSlot): string =>
-  (v.win > 0 ? Math.round(v.win * 100) + '% win' : Math.round(v.share * 100) + '% of enemy HP') +
-  (v.how && v.how !== 'new' ? ' · ' + v.how : '');
 
 let refreshOverlay: () => void = () => undefined;
 const refresh = () => refreshOverlay();
@@ -408,18 +530,22 @@ function init(): void {
     '<header class="d-bar"><b>Oaken Tower</b><span class="d-status" id="d-status"></span>' +
     '<button type="button" class="d-x" id="d-hide" title="Hide (Ctrl+Shift+O)">–</button><button type="button" class="d-x" id="d-quit" title="Quit">×</button></header>' +
     '<div class="d-tools"><button type="button" class="ov-btn" id="d-cal" title="Ctrl+Shift+K">Calibrate</button><button type="button" class="ov-btn" id="d-scan" title="Ctrl+Shift+S">Scan</button><button type="button" class="ov-btn" id="d-lock" title="Click-through; Ctrl+Shift+L unlocks">Lock</button>' +
-    '<label class="d-auto"><input type="checkbox" id="d-auto"> auto tower</label>' +
+    '<label class="d-auto" title="Take over your tower, perk, day, gold and level from the game"><input type="checkbox" id="d-auto"> auto read</label>' +
     '<label class="d-op" title="See-through: Ctrl+Shift+Up / Down"><span>◐</span><input type="range" id="d-op" min="20" max="100" step="5" aria-label="Panel opacity"><b id="d-opv"></b></label></div>' +
+    '<div class="d-run" id="d-run"></div>' +
+    '<section class="d-coach" id="d-coach"></section>' +
+    '<section class="d-paths" id="d-paths"></section>' +
+    '<section class="d-shop" id="d-shop"></section>' +
     '<div class="d-perk">' +
     perkSelect() +
     '<button type="button" class="ov-btn" id="d-clear">Clear tower</button></div>' +
-    '<div id="d-ov"></div><section class="d-shop" id="d-shop"></section>' +
-    (api ? '' : '<p class="d-note">Open this page in the Oaken Tower Overlay app to read the shop.</p>');
+    '<div id="d-ov"></div>' +
+    (api ? '' : '<p class="d-note">Open this page in the Oaken Tower Overlay app to read the game.</p>');
 
   refreshOverlay = mountOverlay($('#d-ov'), view, {
     day(d) {
       plan.day = Math.max(1, Math.min(16, plan.day + d));
-      changed();
+      afterChange();
     },
     take(i) {
       const s = next?.[i];
@@ -430,7 +556,7 @@ function init(): void {
         if (at < 0) return;
         plan.cells[at] = { id: s.itemId, star: 0 };
       }
-      changed();
+      afterChange();
     },
     star(i, d) {
       const c = plan.cells[i];
@@ -438,17 +564,30 @@ function init(): void {
       const n = Math.max(0, Math.min(3, c.star + d));
       if (n === c.star) return;
       c.star = n;
-      changed();
+      afterChange();
     },
   });
 
+  $('#d-paths').addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-path]');
+    if (!b) return;
+    picked = b.dataset.path!;
+    try {
+      localStorage.setItem(PATH_KEY, picked);
+    } catch {
+      /* this session only */
+    }
+    coach();
+    refresh();
+  });
   $('#d-perk').addEventListener('change', (e) => {
     plan.perk = (e.target as HTMLSelectElement).value;
-    changed();
+    afterChange();
   });
   $('#d-clear').addEventListener('click', () => {
     plan.cells = new Array(CELLS).fill(null);
-    changed();
+    calmTower.reset();
+    afterChange();
   });
   $('#d-cal').addEventListener('click', () => api?.calibrate());
   $('#d-scan').addEventListener('click', () => void api?.set({ scan: !state?.config.scan }));
@@ -464,14 +603,20 @@ function init(): void {
 
   if (api) {
     api.onState((s) => {
-      const recal = JSON.stringify(s.config.shop) !== JSON.stringify(state?.config.shop);
+      const recal =
+        JSON.stringify([s.config.shop, s.config.tower]) !== JSON.stringify([state?.config.shop, state?.config.tower]) ||
+        JSON.stringify(s.display) !== JSON.stringify(state?.display);
+      const paused = state?.config.scan && !s.config.scan;
       state = s;
       if (recal) {
-        shopKey = '';
-        verdicts = [];
-        api.sendHints({ slots: [] });
-        paintShop();
+        calmShop.reset();
+        calmTower.reset();
+        calmBench.reset();
+        shop = [];
+        bench = [];
+        coach();
       }
+      if (recal || paused) stopStream();
       paintStatus();
     });
     api.onPlan((m) => {
@@ -484,6 +629,8 @@ function init(): void {
     });
     window.setInterval(() => void scan(), 1500);
   }
+  coach();
+  paintRun();
   if (owned().length) void compute();
 }
 

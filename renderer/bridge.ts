@@ -36,12 +36,12 @@ export interface Capture {
 export interface HintSlot {
   id: string;
   name: string;
-  /** score gain for your tower (0..2 scale of the optimizer) */
-  gain: number;
-  win: number;
-  share: number;
-  how: string;
-  tone: 'buy' | 'good' | 'skip';
+  /** buy: your build needs it · star: copy of one you have · alt: fits another path · skip */
+  tone: 'buy' | 'star' | 'fit' | 'alt' | 'skip';
+  /** short label on the item */
+  badge: string;
+  /** one line why */
+  why: string;
   rect: Rect;
 }
 export interface DesktopApi {

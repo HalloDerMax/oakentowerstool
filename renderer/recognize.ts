@@ -56,7 +56,7 @@ export const MAX_SCORE = 0.9;
 /** the best item must beat the second best by this much */
 const MIN_GAP = 0.02;
 /** candidates kept after the quick pass */
-const SHORTLIST = 20;
+const SHORTLIST = 24;
 
 /** area-average resize (also handles upscaling) */
 export function resize(src: Img, w: number, h: number): Img {
@@ -250,12 +250,12 @@ export function identify(slot: Img, items: ItemTemplate[], maxScore = MAX_SCORE,
     }
   // an (almost) flat slot is empty
   if (total < s.w * s.h * 6) return null;
-  // quick pass over every item (every other size, every 3rd pixel), then the precise search for the best few
+  // quick pass over every item (every size, every 2nd pixel), then the precise search for the best few
   const short = items
     .map((it) => {
       let best = Infinity;
       const ts = sets(it);
-      for (let k = 1; k < ts.length; k += 2) best = Math.min(best, slide(s, ts[k]!, bg, total, edge, 3));
+      for (const t of ts) best = Math.min(best, slide(s, t, bg, total, edge, 2));
       return { it, best };
     })
     .sort((a, b) => a.best - b.best)

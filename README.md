@@ -6,9 +6,18 @@
 
 ## Was das Tool kann
 
-- **Shop-Tipps im Spiel:** Über jedem Shop-Item steht **BUY**, **Good** oder **Skip**, mit dem Effekt auf deinen Turm (simuliert). Das beste Item ist golden umrahmt.
-- **Dein Turm wird erkannt** und automatisch eingetragen (auch die im Spiel gespiegelten Bilder).
-- **Panel über dem Spiel:** Turm, beste nächste Käufe, Ziel-Build, Roll oder Level. Verschiebbar, **durchsichtig einstellbar (20–100 %)**, sperrbar (Klicks gehen durch zum Spiel).
+Das Tool ist ein **Trainer**: Es liest dein Spiel mit und sagt dir klar, was du tun sollst.
+
+- **Klare Kaufentscheidung über jedem Shop-Item** (ein ruhiges Label, das nur wechselt, wenn sich im Shop etwas ändert):
+  - **BUY · Build**: dein Build braucht es
+  - **STAR ↑**: Kopie eines Items, das du hast, ergibt einen Stern
+  - **Fits · Goblin**: passt zu den Packs, die du spielst
+  - **Switch · Build**: passt zu einem anderen Weg, den deine Items erlauben
+  - **Skip**
+- **Build-Wege zur Auswahl:** Aus deinen Items (Turm und Bank) schlägt das Tool bis zu drei Wege vor, aus unseren berechneten Builds und aus Builds, die es für deine Packs neu berechnet. Du klickst deinen Weg an, und die Tipps folgen ihm.
+- **Liest das Spiel mit:** Turm, **Bank**, **Perk**, **Tag**, **Gold**, **Level und XP**, **Luck**, **nächste Chest**, **Shop-Chancen**, **Leben**, **Trophäen**. Tag, Perk und Turm werden übernommen.
+- **Coach:** kurze To-do-Liste, die auf jede Änderung reagiert, z. B. kaufen, Kopien zusammenführen, Bank-Items einsetzen oder verkaufen, rollen oder leveln (mit deinem echten Gold und deinen XP).
+- **Panel über dem Spiel:** verschiebbar, **durchsichtig einstellbar (20–100 %)**, sperrbar (Klicks gehen durch zum Spiel).
 - **Live mit dem Planner der Website verbunden:** Änderungen erscheinen sofort auf beiden Seiten.
 
 ![Panel](docs/screenshots/panel.png)
@@ -30,7 +39,7 @@
 
 ## Was das Tool sieht
 
-Es macht etwa alle 1,5 s ein Bildschirmfoto und vergleicht nur die kalibrierten Ausschnitte mit den Item-Bildern, **auf deinem PC**. Kein Zugriff auf Speicher oder Dateien des Spiels, nichts wird hochgeladen. Die Verbindung zum Planner läuft nur lokal (`127.0.0.1`).
+Es nimmt den Bildschirm als ruhigen Video-Stream (2 Bilder pro Sekunde) und liest daraus nur die nötigen Ausschnitte: Item-Bilder werden mit den Item-Bildern verglichen, Zahlen mit einer Texterkennung (Tesseract, offline) gelesen, alles **auf deinem PC**. Ein Item gilt erst als erkannt, wenn mehrere Bilder hintereinander dasselbe zeigen. Kein Zugriff auf Speicher oder Dateien des Spiels, nichts wird hochgeladen. Die Verbindung zum Planner läuft nur lokal (`127.0.0.1`).
 
 ## Entwickeln
 
@@ -44,4 +53,4 @@ npm run sync     # Simulator, Daten und Bilder aus dem Hub nach shared/ (HUB_DIR
 
 `shared/` ist eine Kopie der benötigten Teile des Fan Hubs (Simulator, Spieldaten, Overlay-Anzeige, Item-Bilder). Item-Bilder und Spielinhalte gehören den Entwicklern von _Oaken Tower_.
 
-**In Arbeit:** Auslesen der Spielanzeigen (Tag, Gold, Level, XP, Luck, Chest, Shop-Chancen, Leben, Trophäen, Perk) – `renderer/hud.ts`, `renderer/ocr.ts`.
+Die Positionen der Spielanzeigen leitet das Tool aus der Kalibrierung von Shop und Turm ab (`renderer/hud.ts`); ohne Kalibrierung nimmt es an, dass das Spiel den ganzen Bildschirm füllt. Die Tests prüfen Erkennung und Texterkennung an echten Spiel-Ausschnitten (ohne Spielernamen).

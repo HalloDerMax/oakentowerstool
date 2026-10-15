@@ -205,16 +205,43 @@ html:has(.h-body),
 .h-slot.t-buy .h-badge {
   border-color: #ffd88a;
   color: #ffd88a;
-  animation: h-pulse 1.6s ease-in-out infinite;
+  animation:
+    h-in 0.35s var(--ease) both,
+    h-pulse 1.4s 0.4s ease-in-out 2;
 }
 .h-slot.t-buy {
   outline: 3px solid rgba(255, 216, 138, 0.85);
   outline-offset: 2px;
   border-radius: 8px;
 }
-.h-slot.t-good .h-badge {
+.h-slot.t-star .h-badge {
   border-color: #62c27a;
   color: #9be3ae;
+}
+.h-slot.t-fit .h-badge {
+  border-color: #62c27a;
+  color: #c6efd2;
+}
+.h-slot.t-alt .h-badge {
+  border-color: #5fc4e8;
+  color: #a8e2f5;
+}
+.h-slot.gone {
+  display: none;
+}
+#h-badges {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+.h-slot .h-badge {
+  animation: h-in 0.35s var(--ease) both;
+}
+@keyframes h-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.92);
+  }
 }
 .h-slot.t-skip .h-badge {
   opacity: 0.7;
@@ -351,4 +378,160 @@ html:has(.h-body),
   min-width: 34px;
   text-align: right;
   font-weight: 600;
+}
+/* run info read from the game */
+.d-run {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 10px 0;
+}
+.d-run:empty {
+  display: none;
+}
+.d-chip {
+  display: grid;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  line-height: 1.15;
+}
+.d-chip small {
+  font-size: 0.6rem;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.d-chip b {
+  font-size: 0.82rem;
+}
+.d-chip.gold b {
+  color: var(--brass-2);
+}
+.d-chip.lives b {
+  color: #ff8a8a;
+}
+.d-chip.r-Rare b {
+  color: var(--r-rare);
+}
+.d-chip.r-Epic b {
+  color: var(--r-epic);
+}
+.d-chip.r-Legendary b {
+  color: var(--r-legendary);
+}
+/* the coach */
+.d-coach,
+.d-paths {
+  padding: 8px 10px 0;
+}
+.d-coach h4,
+.d-paths h4 {
+  margin: 0 0 6px;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+.d-paths h4 small {
+  text-transform: none;
+  letter-spacing: 0;
+}
+.d-coach ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.d-coach li {
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+.d-coach li.first {
+  background: rgba(230, 176, 78, 0.14);
+  border-left: 3px solid var(--brass);
+  font-weight: 600;
+}
+.d-dim {
+  margin: 0;
+  color: var(--dim);
+  font-size: 0.75rem;
+}
+.d-path {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  margin: 0 0 5px;
+  padding: 6px 9px;
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.d-path.on {
+  border-color: var(--brass);
+  background: rgba(230, 176, 78, 0.1);
+}
+.d-path-h {
+  display: grid;
+}
+.d-path-h b {
+  font-size: 0.82rem;
+}
+.d-path-h small,
+.d-need small {
+  color: var(--dim);
+  font-size: 0.68rem;
+}
+.d-need {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.d-need img,
+.d-bench img {
+  width: 24px;
+  height: 24px;
+}
+.d-bench {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+}
+.d-shop {
+  padding-top: 8px;
+}
+.d-shop li.t-star {
+  border-left-color: var(--ok);
+}
+.d-shop li.t-star em {
+  color: var(--ok);
+}
+.d-shop li.t-fit {
+  border-left-color: var(--ok);
+}
+.d-shop li.t-fit em {
+  color: #c6efd2;
+}
+.d-shop li.t-alt {
+  border-left-color: #5fc4e8;
+}
+.d-shop li.t-alt em {
+  color: #a8e2f5;
+}
+.d-shop li em {
+  white-space: nowrap;
+}
+/* roll or level is part of the coach in the app; the overlay's own box would say it twice */
+.d-panel .ov-tips h4:last-of-type,
+.d-panel .ov-gold,
+.d-panel #ov-advice {
+  display: none;
 }

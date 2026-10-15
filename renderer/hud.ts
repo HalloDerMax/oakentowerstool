@@ -20,12 +20,14 @@ export interface HudField {
   box: [number, number, number, number];
   chars: string;
   ink: InkMode;
+  /** tried when the first reading makes no sense (coloured text differs from game to game) */
+  alt?: InkMode;
 }
 export const HUD_FIELDS: HudField[] = [
   { key: 'day', box: [785, 15, 70, 58], chars: '0123456789', ink: 'light' },
   { key: 'trophies', box: [925, 15, 110, 58], chars: '0123456789/', ink: 'light' },
   { key: 'lives', box: [1105, 15, 125, 58], chars: '0123456789/', ink: 'light' },
-  { key: 'odds', box: [1272, 15, 225, 38], chars: '0123456789% ', ink: 'bright' },
+  { key: 'odds', box: [1272, 15, 225, 38], chars: '0123456789% ', ink: 'light', alt: 'bright' },
   { key: 'gold', box: [712, 866, 110, 50], chars: '0123456789', ink: 'light' },
   { key: 'income', box: [660, 912, 140, 32], chars: 'Income:0123456789 ', ink: 'light' },
   { key: 'level', box: [688, 950, 100, 30], chars: 'Level:0123456789 ', ink: 'light' },
@@ -92,6 +94,9 @@ export interface Hud {
   hp?: [number, number];
 }
 
+/** does this text give a sensible value for the field? */
+export const readable = (key: HudKey, text: string): boolean => parseHud({ [key]: text })[key] !== undefined;
+
 const pair = (s: string): [number, number] | undefined => {
   const m = /(\d+)\s*\/\s*(\d+)/.exec(s);
   return m ? [Number(m[1]), Number(m[2])] : undefined;
@@ -127,4 +132,15 @@ export function parseHud(text: Partial<Record<HudKey, string>>): Hud {
   const hp = pair(text.hp ?? '');
   if (hp && hp[0] <= hp[1]) h.hp = hp;
   return h;
+}
+
+/** the bench under the shop: items there sit anywhere (drawn mirrored, like the tower), so it is searched in overlapping windows */
+export const BENCH_BOX: [number, number, number, number] = [840, 872, 1000, 196];
+export function benchWindows(): [number, number, number, number][] {
+  const [x, y, w, h] = BENCH_BOX;
+  const size = 170,
+    step = 85;
+  const out: [number, number, number, number][] = [];
+  for (let at = x; at + size <= x + w + 1; at += step) out.push([at, y, size, h]);
+  return out;
 }
