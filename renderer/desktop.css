@@ -1042,3 +1042,161 @@ html:has(.h-body),
     animation: none !important;
   }
 }
+
+/* ===== game look (like the site's fight screen and builder): wooden plaques, iron corner plates, pop ===== */
+.h-mark .h-frame {
+  inset: -4px;
+  border: max(3px, calc(var(--s) * 0.035)) solid var(--c);
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 2px #fff6e8,
+    0 0 0 5px #2a1a0e,
+    0 0 calc(var(--s) * 0.3) color-mix(in srgb, var(--c) 70%, transparent),
+    inset 0 0 calc(var(--s) * 0.2) color-mix(in srgb, var(--c) 35%, transparent);
+  animation: h-pop 0.45s var(--ease) both;
+}
+@keyframes h-pop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.2;
+  }
+  60% {
+    transform: scale(1.07);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes h-glow {
+  50% {
+    box-shadow:
+      0 0 0 2px #fff6e8,
+      0 0 0 5px #2a1a0e,
+      0 0 calc(var(--s) * 0.55) var(--c),
+      inset 0 0 calc(var(--s) * 0.3) color-mix(in srgb, var(--c) 45%, transparent);
+  }
+}
+.h-mark.t-buy .h-frame,
+.h-mark.t-star .h-frame,
+.h-mark.t-fit .h-frame {
+  animation:
+    h-pop 0.45s var(--ease) both,
+    h-glow 1.6s 0.45s ease-in-out infinite;
+}
+/* iron corner plates with a rivet, like the tower's frame in the game */
+.h-mark .h-c {
+  width: calc(var(--s) * 0.2);
+  height: calc(var(--s) * 0.2);
+  min-width: 18px;
+  min-height: 18px;
+  border: 0;
+  border-radius: 3px;
+  background:
+    radial-gradient(circle at 50% 50%, #d9d2c4 0 18%, #3a3632 22% 30%, transparent 32%),
+    linear-gradient(145deg, #8a8580, #4a4744 55%, #2c2a28);
+  box-shadow:
+    0 0 0 2px #1a1714,
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  filter: none;
+}
+.h-mark.t-buy .h-c {
+  background:
+    radial-gradient(circle at 50% 50%, #fff3c4 0 18%, #6b4a12 22% 30%, transparent 32%),
+    linear-gradient(145deg, #ffe08a, #c98f2c 55%, #7a5216);
+}
+.h-c.tl {
+  left: -10px;
+  top: -10px;
+}
+.h-c.tr {
+  right: -10px;
+  top: -10px;
+}
+.h-c.bl {
+  left: -10px;
+  bottom: -10px;
+}
+.h-c.br {
+  right: -10px;
+  bottom: -10px;
+}
+/* the label: a wooden plaque like the FIGHT button, the colour on its top edge and in the word */
+.h-tag {
+  padding: calc(var(--s) * 0.05) calc(var(--s) * 0.06) calc(var(--s) * 0.06);
+  border: 3px solid #2a1a0e;
+  border-top: 5px solid var(--c);
+  border-radius: 6px;
+  background: linear-gradient(180deg, #7a5233, #523420);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 220, 170, 0.2),
+    0 5px 0 #2a1a0e,
+    0 10px 22px rgba(0, 0, 0, 0.55);
+  color: #fff6e8;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.55);
+}
+.h-tag b {
+  font: 700 max(18px, calc(var(--s) * 0.2)) / 1.05 var(--font-serif);
+  letter-spacing: 0.05em;
+  color: var(--c);
+}
+.h-tag span {
+  font: 600 max(11px, calc(var(--s) * 0.095)) / 1.2 var(--font-serif);
+  color: #f1e8da;
+}
+.h-mark.t-skip .h-tag {
+  background: linear-gradient(180deg, #5a3a2a, #3a241a);
+  color: #fff6e8;
+}
+.h-mark.t-skip .h-tag b {
+  color: #ff8a7a;
+}
+.h-mark.t-skip .h-frame {
+  border-width: 3px;
+  box-shadow:
+    0 0 0 2px #2a1a0e,
+    inset 0 0 calc(var(--s) * 0.15) rgba(255, 74, 61, 0.25);
+  animation: h-pop 0.45s var(--ease) both;
+}
+.h-x {
+  font-family: var(--font-serif);
+  color: #ff8a7a;
+  text-shadow:
+    0 2px 0 #2a1a0e,
+    0 0 6px #000;
+}
+/* the arrow: a brass point under the plaque */
+.h-mark.t-buy .h-arrow {
+  border-top-color: #ffd88a;
+  filter: drop-shadow(0 3px 0 #2a1a0e);
+}
+.h-ping {
+  border-width: 3px;
+  border-radius: 10px;
+  box-shadow: 0 0 12px var(--c);
+}
+.h-mark .h-tag {
+  animation: h-pop 0.45s var(--ease) both;
+}
+.h-mark.t-buy .h-tag {
+  animation:
+    h-pop-x 0.45s var(--ease) both,
+    h-beat 1.1s 0.45s ease-in-out infinite;
+}
+/* the plaque is centred with translateX: its pop keeps that */
+.h-mark .h-tag {
+  animation-name: h-pop-x;
+}
+@keyframes h-pop-x {
+  0% {
+    transform: translateX(-50%) scale(0.7);
+    opacity: 0.2;
+  }
+  60% {
+    transform: translateX(-50%) scale(1.07);
+  }
+  100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+  }
+}
