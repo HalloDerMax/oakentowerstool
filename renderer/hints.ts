@@ -41,12 +41,24 @@ function paintBadges(): void {
     if (shownKey[i] === key) continue;
     shownKey[i] = key;
     if (!s) {
-      el.className = 'h-slot gone';
+      el.className = 'h-mark gone';
       continue;
     }
-    el.className = 'h-slot t-' + s.tone;
-    el.setAttribute('style', place(s.rect));
-    el.innerHTML = '<span class="h-badge">' + esc(s.badge) + '</span>';
+    el.className = 'h-mark t-' + s.tone;
+    // sizes follow the item on screen
+    el.setAttribute('style', place(s.rect) + ';--s:' + Math.round(s.rect.h * window.innerHeight) + 'px');
+    const [head, ...rest] = s.badge.split(' · ');
+    const word: Record<HintSlot['tone'], string> = { buy: 'BUY', star: 'STAR ↑', fit: 'FITS', alt: 'SWITCH', skip: 'SKIP' };
+    el.innerHTML =
+      '<i class="h-frame"></i><i class="h-c tl"></i><i class="h-c tr"></i><i class="h-c bl"></i><i class="h-c br"></i>' +
+      (s.tone === 'skip'
+        ? '<div class="h-tag"><b>SKIP</b><span>not your build</span></div><i class="h-x">✕</i>'
+        : '<div class="h-tag"><b>' +
+          esc(word[s.tone] || head!) +
+          '</b>' +
+          (rest.length ? '<span>' + esc(rest.join(' · ')) + '</span>' : '') +
+          '</div>' +
+          (s.tone === 'buy' ? '<div class="h-arrow"></div><i class="h-ping"></i><i class="h-ping two"></i>' : ''));
   }
 }
 

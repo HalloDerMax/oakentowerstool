@@ -758,9 +758,6 @@ html:has(.h-body),
   .d-pics {
     grid-column: 1 / -1;
   }
-  .d-run .d-chip:nth-child(n + 5) {
-    display: none;
-  }
 }
 .d-panel > * {
   flex: none;
@@ -769,4 +766,279 @@ html:has(.h-body),
   position: sticky;
   top: 0;
   z-index: 2;
+}
+
+/* ===== marks on the game: loud for what to buy, the rest dimmed (square shapes, no pills, nothing cut off) ===== */
+.h-mark {
+  position: absolute;
+  pointer-events: none;
+  --s: 120px;
+  --c: #ffd84a;
+}
+.h-mark.gone {
+  display: none;
+}
+.h-mark .h-frame {
+  position: absolute;
+  inset: -6px;
+  border: max(4px, calc(var(--s) * 0.045)) solid var(--c);
+  border-radius: 4px;
+  box-shadow:
+    0 0 0 2px rgba(0, 0, 0, 0.85),
+    inset 0 0 0 2px rgba(0, 0, 0, 0.6),
+    0 0 calc(var(--s) * 0.25) var(--c);
+  animation: h-in 0.3s ease-out both;
+}
+/* corner brackets make the frame readable on busy backgrounds */
+.h-mark .h-c {
+  position: absolute;
+  width: calc(var(--s) * 0.22);
+  height: calc(var(--s) * 0.22);
+  border: max(6px, calc(var(--s) * 0.07)) solid var(--c);
+  filter: drop-shadow(0 0 3px #000);
+}
+.h-c.tl {
+  left: -14px;
+  top: -14px;
+  border-right: 0;
+  border-bottom: 0;
+}
+.h-c.tr {
+  right: -14px;
+  top: -14px;
+  border-left: 0;
+  border-bottom: 0;
+}
+.h-c.bl {
+  left: -14px;
+  bottom: -14px;
+  border-right: 0;
+  border-top: 0;
+}
+.h-c.br {
+  right: -14px;
+  bottom: -14px;
+  border-left: 0;
+  border-top: 0;
+}
+.h-tag {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 16px);
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  min-width: 100%;
+  padding: calc(var(--s) * 0.04) calc(var(--s) * 0.1);
+  border-radius: 3px;
+  background: var(--c);
+  color: #140c02;
+  border: 3px solid #140c02;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.7);
+  text-align: center;
+  white-space: nowrap;
+  animation: h-in 0.3s ease-out both;
+}
+.h-tag b {
+  font: 900 max(18px, calc(var(--s) * 0.22)) / 1 var(--font);
+  letter-spacing: 0.04em;
+}
+.h-tag span {
+  font: 700 max(11px, calc(var(--s) * 0.1)) / 1.2 var(--font);
+}
+.h-arrow {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 2px);
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-top: 14px solid var(--c);
+  filter: drop-shadow(0 2px 0 #140c02);
+}
+/* buy: gold, breathing glow (nothing moves) */
+.h-mark.t-buy .h-frame {
+  animation:
+    h-in 0.3s ease-out both,
+    h-glow 1.6s ease-in-out infinite;
+}
+@keyframes h-glow {
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(0, 0, 0, 0.85),
+      inset 0 0 0 2px rgba(0, 0, 0, 0.6),
+      0 0 calc(var(--s) * 0.5) var(--c);
+  }
+}
+.h-mark.t-star,
+.h-mark.t-fit {
+  --c: #4ee08a;
+}
+.h-mark.t-star .h-frame,
+.h-mark.t-fit .h-frame {
+  border-width: max(3px, calc(var(--s) * 0.03));
+}
+.h-mark.t-star .h-tag b,
+.h-mark.t-fit .h-tag b {
+  font-size: max(15px, calc(var(--s) * 0.16));
+}
+.h-mark.t-alt {
+  --c: #5fc4e8;
+}
+.h-mark.t-alt .h-frame {
+  border-width: 3px;
+}
+.h-mark.t-alt .h-c {
+  display: none;
+}
+.h-mark.t-alt .h-tag b {
+  font-size: max(13px, calc(var(--s) * 0.12));
+}
+/* skip: clearly marked red, and dimmed so the items to buy stand out */
+.h-mark.t-skip {
+  --c: #ff4a3d;
+  background: rgba(8, 5, 3, 0.6);
+  border-radius: 4px;
+}
+.h-mark.t-skip .h-frame {
+  border-width: 3px;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.85);
+}
+.h-mark.t-skip .h-c {
+  display: none;
+}
+.h-mark.t-skip .h-tag {
+  color: #fff;
+  background: #c4271c;
+}
+.h-mark.t-skip .h-tag b {
+  font-size: max(13px, calc(var(--s) * 0.12));
+}
+.h-x {
+  position: absolute;
+  right: 6px;
+  top: 4px;
+  font: 900 max(22px, calc(var(--s) * 0.26)) / 1 var(--font);
+  font-style: normal;
+  color: #ff4a3d;
+  text-shadow:
+    0 0 3px #000,
+    0 0 6px #000;
+}
+/* long build names wrap inside the banner instead of being cut */
+.h-tag {
+  white-space: normal;
+  max-width: calc(100% + 24px);
+}
+
+/* no cut-off text anywhere in the panel: it wraps instead */
+.d-panel *,
+.d-then li,
+.d-then b,
+.d-run .d-chip b,
+.d-status {
+  text-overflow: clip !important;
+}
+.d-then li {
+  white-space: normal;
+  overflow: visible;
+}
+.d-run {
+  flex-wrap: wrap;
+}
+.d-run .d-chip {
+  flex: 1 1 64px;
+}
+.d-run .d-chip b {
+  white-space: normal;
+  overflow: visible;
+}
+.d-status {
+  white-space: normal;
+  overflow: visible;
+}
+.d-shop li small {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+.d-chip,
+.d-cur,
+.d-now,
+.d-path,
+.d-shop li,
+.ov-btn {
+  border-radius: 6px;
+}
+/* banners exactly as wide as their item: neighbours never overlap */
+.h-tag {
+  min-width: 0;
+  width: calc(100% + 12px);
+  max-width: none;
+  box-sizing: border-box;
+}
+/* buy: actively points at itself */
+.h-mark.t-buy {
+  z-index: 3;
+}
+.h-mark.t-buy .h-arrow {
+  border-left-width: 18px;
+  border-right-width: 18px;
+  border-top-width: 20px;
+  animation: h-bob 0.8s ease-in-out infinite;
+}
+@keyframes h-bob {
+  50% {
+    transform: translate(-50%, 9px);
+  }
+}
+.h-mark.t-buy .h-tag {
+  animation:
+    h-in 0.3s ease-out both,
+    h-beat 1.1s ease-in-out infinite;
+}
+@keyframes h-beat {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    transform: translateX(-50%) scale(1.08);
+  }
+}
+/* rings that run out from the item */
+.h-ping {
+  position: absolute;
+  inset: -6px;
+  border: 4px solid var(--c);
+  border-radius: 6px;
+  opacity: 0;
+  animation: h-ping 1.6s ease-out infinite;
+}
+.h-ping.two {
+  animation-delay: 0.8s;
+}
+@keyframes h-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+/* star / fits: a calm breathing glow */
+.h-mark.t-star .h-frame,
+.h-mark.t-fit .h-frame {
+  animation:
+    h-in 0.3s ease-out both,
+    h-glow 2.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .h-mark * {
+    animation: none !important;
+  }
 }
