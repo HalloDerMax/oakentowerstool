@@ -20,4 +20,6 @@ contextBridge.exposeInMainWorld('oakenDesktop', {
   lock: (on) => ipcRenderer.send('lock', !!on),
   hide: () => ipcRenderer.send('hide'),
   quit: () => ipcRenderer.send('quit'),
+  /** save a snapshot (pictures + what was read) and open its folder */
+  snapshot: (d) => ipcRenderer.invoke('snapshot', d),
 });

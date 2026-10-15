@@ -60,4 +60,5 @@ export interface DesktopApi {
   lock(on: boolean): void;
   hide(): void;
   quit(): void;
+  snapshot(d: { files: Record<string, string>; info: unknown }): Promise<string>;
 }

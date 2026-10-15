@@ -51,6 +51,8 @@ import {
   HUD_FIELDS,
   parseHud,
   PICK_BOXES,
+  layoutWith,
+  REF_CELL0,
   PERK_BOX,
   placeOnScreen,
   type HudKey,
@@ -193,7 +195,7 @@ function view(): OverlayView {
 /* ---------- recognition worker ---------- */
 let state: DesktopState | null = null;
 /** several recognition workers: the slots of one scan are shared out, so a new shop is read in a fraction of the time */
-const POOL = Math.max(2, Math.min(4, (navigator.hardwareConcurrency || 4) - 2));
+const POOL = Math.max(2, Math.min(6, (navigator.hardwareConcurrency || 4) - 1));
 const recs = Array.from({ length: POOL }, () => new Worker(new URL('./recognize.worker.ts', import.meta.url), { type: 'module' }));
 let recSeq = 0;
 let picturesSent: Promise<void> | null = null;
@@ -255,7 +257,13 @@ function fingerprint(img: Img): string {
   return img.w + 'x' + img.h + ':' + out.join('.');
 }
 const memo = new Map<string, Match | null>();
-async function identifyAll(slots: Img[], facing: Facing, group: Group = 'items'): Promise<(Match | null)[]> {
+async function identifyAll(
+  slots: Img[],
+  facing: Facing,
+  group: Group = 'items',
+  kind = 'shop',
+  prev: (string | null)[] = [],
+): Promise<(Match | null)[]> {
   const keys = slots.map((s) => group + facing + fingerprint(s));
   const todo = slots.map((_, i) => (memo.has(keys[i]!) ? -1 : i)).filter((i) => i >= 0);
   if (todo.length) {
@@ -272,7 +280,15 @@ async function identifyAll(slots: Img[], facing: Facing, group: Group = 'items')
             resolve(e.data);
           };
           w.addEventListener('message', on);
-          w.postMessage({ op: 'identify', id, group, slots: mine.map((i) => slots[i]!), facing } satisfies RecRequest);
+          w.postMessage({
+            op: 'identify',
+            id,
+            group,
+            slots: mine.map((i) => slots[i]!),
+            facing,
+            kind,
+            prev: mine.map((i) => prev[i] ?? null),
+          } satisfies RecRequest);
         });
         res.matches.forEach((m, k) => memo.set(keys[mine[k]!]!, m));
       }),
@@ -283,8 +299,8 @@ async function identifyAll(slots: Img[], facing: Facing, group: Group = 'items')
 }
 
 /* ---------- reading the screen ---------- */
-const calmShop = new Stable(2, 3);
-const calmTower = new Stable(2, 3);
+const calmShop = new Stable(2, 2);
+const calmTower = new Stable(2, 2);
 const calmBench = new Stable(2, 2);
 const calmPerk = new Stable(2, 4);
 const calmPick = new Stable(2, 2);
@@ -301,7 +317,7 @@ const grow = (r: Rect, k = 0.06): Rect => ({ x: r.x - r.w * k, y: r.y - r.h * k,
 function layout(): DesktopConfig {
   const cfg = state?.config ?? {};
   if (cfg.shop?.length || cfg.tower) return cfg;
-  return { ...cfg, ...autoLayout(state?.display) };
+  return { ...cfg, ...(snapAt ? layoutWith(snapAt) : autoLayout(state?.display)) };
 }
 const calibrated = () => !!(state?.config.shop?.length || state?.config.tower);
 function shopPlaces(): Rect[] {
@@ -323,11 +339,27 @@ function towerCells(): Rect[] {
 let ocr: typeof import('./ocr') | null = null;
 let scanning = false;
 /** the tower's cells out of one picture around it: snapped to the frames, inner part only (no signs, no star) */
-function towerCutouts(area: Img | undefined, n: number): Img[] {
+/** the game's layout mapped by the tower found on screen: exact to a few pixels, so the HUD (gold, day …), shop and
+ * bench boxes sit right even when the game is not exactly where the known layout expects it */
+let snapAt: ((b: [number, number, number, number]) => Rect) | null = null;
+function towerCutouts(area: Img | undefined, n: number, areaRect?: Rect): Img[] {
   const t = layout().tower;
   if (!area || !t) return [];
   // picture pixels per reference pixel: the area is the tower box grown by 12 % on every side
   const snap = snapTower(area, area.w / 1.24 / 365);
+  if (snap && areaRect && snap.quality >= 0.5) {
+    const c0 = snap.cells[0]!;
+    const kx = c0.w / REF_CELL0.w,
+      ky = c0.h / REF_CELL0.h;
+    const fx = areaRect.w / area.w,
+      fy = areaRect.h / area.h;
+    snapAt = ([x, y, w, h]) => ({
+      x: areaRect.x + (c0.x + (x - REF_CELL0.x) * kx) * fx,
+      y: areaRect.y + (c0.y + (y - REF_CELL0.y) * ky) * fy,
+      w: w * kx * fx,
+      h: h * ky * fy,
+    });
+  }
   if (snap)
     return snap.cells.slice(0, n).map((c) => {
       const r = innerCell(c);
@@ -378,7 +410,7 @@ function readEncounterLater(titles: Img[], panels: Rect[]): void {
   })();
 }
 /** a match this clear needs no second frame */
-const sure = (m: Match | null) => !!m && m.score < 0.6 && m.next - m.score > 0.15;
+const sure = (m: Match | null) => !!m && m.score < 0.7 && m.next - m.score > 0.1;
 let ocrBusy = false;
 /** the HUD (gold, level …) is read in the background: it never holds up the item recognition */
 function readHudLater(imgs: Img[]): void {
@@ -414,10 +446,12 @@ async function scan(): Promise<void> {
   tick++;
   try {
     await sendPictures();
-    const at = placeOnScreen(layout(), state.display);
+    // the snapped tower is the best guide to where everything else is
+    const at = snapAt ?? placeOnScreen(layout(), state.display);
     const places = shopPlaces(),
       cells = towerCells(),
-      windows = benchWindows().map(at);
+      // the bench changes rarely: every third scan
+      windows = tick % 3 === 0 ? benchWindows().map(at) : [];
     const readHud = cfg.autoTower && !ocrBusy && tick % 6 === 1;
     const fields = readHud ? HUD_FIELDS.map((f) => at(f.box)) : [];
     const perkBox = cfg.autoTower ? [at(PERK_BOX)] : [];
@@ -427,13 +461,14 @@ async function scan(): Promise<void> {
     // the tower is grabbed as one piece around it; its cells are then found by their frames
     const tw = layout().tower;
     const towerArea = tw ? [grow(tw, 0.12)] : [];
-    const pickBoxes = PICK_BOXES.map(at);
+    // a pick screen dims the shop: look for one only while the shop shows (almost) nothing
+    const pickBoxes = pick || shop.filter(Boolean).length < 3 ? PICK_BOXES.map(at) : [];
     const imgs = await grab([...places.map((r) => grow(r)), ...towerArea, ...windows, ...perkBox, ...fields, ...titleBoxes, ...pickBoxes]);
     if (!imgs.length) return;
     let k = 0;
     const take = (n: number) => imgs.slice(k, (k += n));
     const shopImgs = take(places.length),
-      towerImgs = towerCutouts(take(towerArea.length)[0], cells.length),
+      towerImgs = towerCutouts(take(towerArea.length)[0], cells.length, towerArea[0]),
       benchImgs = take(windows.length),
       perkImgs = take(perkBox.length),
       hudImgs = take(fields.length),
@@ -443,36 +478,44 @@ async function scan(): Promise<void> {
 
     // shop as drawn; tower and bench mirrored (that is how the game shows your own items)
     // a pick screen (choose one of three items) covers the shop: read it first
-    const pickRead = calmPick.push((await identifyAll(pickImgs, 'normal')).map((m) => (m && m.score < 0.8 ? m.id : null)));
+    const pickRead = calmPick.push(
+      (await identifyAll(pickImgs, 'normal', 'items', 'pick', pick?.ids ?? [])).map((m) => (m && m.score < 0.8 ? m.id : null)),
+    );
     const pickNow = pickRead.filter(Boolean).length >= 2 ? { ids: pickRead, rects: pickBoxes } : null;
     if (JSON.stringify(pickNow?.ids) !== JSON.stringify(pick?.ids)) {
       pick = pickNow;
       coach();
     }
     // the shop first: its labels appear before tower and bench are read
-    const shopRead = pick ? shopImgs.map(() => null) : await identifyAll(shopImgs, 'normal');
+    const shopRead = pick ? shopImgs.map(() => null) : await identifyAll(shopImgs, 'normal', 'items', 'shop', shop);
+    // the shop's labels change right now, before the tower and bench are read
     {
-      const quick = calmShop.peek(
+      const newShop = calmShop.push(
         shopRead.map((m) => m?.id ?? null),
         shopRead.map(sure),
       );
-      if (quick.join() !== shop.join()) {
-        shop = quick;
+      if (newShop.join() !== shop.join()) {
+        shop = newShop;
         coach();
       }
     }
     const [towerRead, benchRead, perkRead] = await Promise.all([
-      identifyAll(towerImgs, 'mirrored'),
-      identifyAll(benchImgs, 'mirrored'),
-      identifyAll(perkImgs, 'normal', 'perks'),
+      identifyAll(
+        towerImgs,
+        'mirrored',
+        'items',
+        'tower',
+        plan.cells.map((c) => c?.id ?? null),
+      ),
+      identifyAll(benchImgs, 'mirrored', 'items', 'bench'),
+      identifyAll(perkImgs, 'normal', 'perks', 'perk', [plan.perk || null]),
     ]);
-    const newShop = calmShop.push(
-      shopRead.map((m) => m?.id ?? null),
-      shopRead.map(sure),
-    );
-    const benchCalm = calmBench.push(benchRead.map((m) => m?.id ?? null));
-    // neighbouring windows see the same item twice
-    const newBench = benchCalm.filter((id, i): id is string => !!id && benchCalm[i - 1] !== id);
+    let newBench = bench;
+    if (benchImgs.length) {
+      const benchCalm = calmBench.push(benchRead.map((m) => m?.id ?? null));
+      // neighbouring windows see the same item twice
+      newBench = benchCalm.filter((id, i): id is string => !!id && benchCalm[i - 1] !== id);
+    }
     let planChanged = false;
     if (cfg.autoTower) {
       calmTower
@@ -495,12 +538,11 @@ async function scan(): Promise<void> {
       }
     }
     readHudLater(hudImgs);
-    if (encounter && (newShop.some(Boolean) || Date.now() - encounter.at > 6000)) {
+    if (encounter && (shop.some(Boolean) || Date.now() - encounter.at > 6000)) {
       encounter = null;
       coach();
     }
-    const shopChanged = newShop.join() !== shop.join() || newBench.join() !== bench.join();
-    shop = newShop;
+    const shopChanged = newBench.join() !== bench.join();
     bench = newBench;
     if (planChanged) afterChange();
     else if (shopChanged) coach();
@@ -514,6 +556,8 @@ async function scan(): Promise<void> {
   } finally {
     scanning = false;
     paintStatus();
+    // something changed but is not confirmed yet: look again right away, not at the next tick
+    if (calmShop.pending() || calmTower.pending()) setTimeout(() => void scan(), 15);
   }
 }
 
@@ -579,6 +623,52 @@ function coach(): void {
     api?.sendHints({ slots });
   }
   paintCoach();
+}
+
+/* ---------- snapshot for checking the reading ---------- */
+function png(img: Img): string {
+  const c = document.createElement('canvas');
+  c.width = img.w;
+  c.height = img.h;
+  c.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(img.data), img.w, img.h), 0, 0);
+  return c.toDataURL('image/png');
+}
+async function saveSnapshot(): Promise<void> {
+  if (!api || !state) return;
+  try {
+    const at = snapAt ?? placeOnScreen(layout(), state.display);
+    const fields = HUD_FIELDS.map((f) => at(f.box));
+    const [screen, ...parts] = await grab([{ x: 0, y: 0, w: 1, h: 1 }, ...fields]);
+    if (!screen) return;
+    ocr ??= await import('./ocr');
+    const text = await ocr.readFields(
+      Object.fromEntries(HUD_FIELDS.map((f, i) => [f.key, parts[i]!])) as Partial<Record<HudKey, Img>>,
+      () => String(Math.random()),
+    );
+    const files: Record<string, string> = { screen: png(screen) };
+    HUD_FIELDS.forEach((f, i) => parts[i] && (files['hud-' + f.key] = png(parts[i]!)));
+    const dir = await api.snapshot({
+      files,
+      info: {
+        text,
+        parsed: parseHud(text),
+        hud,
+        shop,
+        bench,
+        tower: plan.cells,
+        perk: plan.perk,
+        snapped: !!snapAt,
+        layout: layout(),
+        display: state.display,
+        size: [screen.w, screen.h],
+      },
+    });
+    scanMsg = 'Snapshot saved: ' + dir;
+    paintStatus();
+  } catch (e) {
+    scanMsg = 'Snapshot failed: ' + (e instanceof Error ? e.message : String(e));
+    paintStatus();
+  }
 }
 
 /* ---------- page ----------
@@ -791,6 +881,7 @@ function init(): void {
     perkSelect() +
     '<button type="button" class="ov-btn" id="d-clear">Clear tower</button></div><div id="d-ov"></div></details>' +
     '<details class="d-fold"><summary>Settings</summary><div class="d-tools"><button type="button" class="ov-btn" id="d-cal" title="Ctrl+Shift+K">Calibrate</button><button type="button" class="ov-btn" id="d-scan" title="Ctrl+Shift+S">Scan</button><button type="button" class="ov-btn" id="d-lock" title="Click-through; Ctrl+Shift+L unlocks">Lock</button>' +
+    '<button type="button" class="ov-btn" id="d-snap" title="Saves the screen, the cut-outs and what the coach read (on this PC) – send it to the developer when something is read wrong">Save snapshot</button>' +
     '<label class="d-auto" title="Take over your tower, perk, day, gold and level from the game"><input type="checkbox" id="d-auto"> auto read</label>' +
     '<label class="d-op" title="See-through: Ctrl+Shift+Up / Down"><span>◐</span><input type="range" id="d-op" min="20" max="100" step="5" aria-label="Panel opacity"><b id="d-opv"></b></label></div></details>' +
     (api ? '' : '<p class="d-note">Open this page in the Oaken Tower Overlay app to read the game.</p>');
@@ -851,6 +942,7 @@ function init(): void {
     void api?.set({ opacity: v / 100 });
   });
   $('#d-auto').addEventListener('change', (e) => void api?.set({ autoTower: (e.target as HTMLInputElement).checked }));
+  $('#d-snap').addEventListener('click', () => void saveSnapshot());
   $('#d-hide').addEventListener('click', () => api?.hide());
   $('#d-quit').addEventListener('click', () => api?.quit());
 

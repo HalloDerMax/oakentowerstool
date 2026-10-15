@@ -1,6 +1,7 @@
 /* Screen reading without stutter: one quiet video stream of the game display (2 frames a second) instead of a
  * full screenshot each time. Only the boxes we need are drawn out of the current frame.
- * The app answers the stream request itself (no picker) with the display the game is on.
+ * The app answers the stream request itself (no picker) with the display the game is on, at its full resolution
+ * (sharp digits for gold, day and level).
  */
 import type { Rect } from './bridge';
 import type { Img } from './recognize';
@@ -12,7 +13,10 @@ const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
 
 function start(): Promise<HTMLVideoElement> {
   starting ??= (async () => {
-    const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 6, max: 10 } }, audio: false });
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: { ideal: 6, max: 10 }, width: { ideal: 7680 }, height: { ideal: 4320 } },
+      audio: false,
+    });
     const v = document.createElement('video');
     v.muted = true;
     v.srcObject = stream;

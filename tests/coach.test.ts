@@ -58,12 +58,14 @@ describe('calm readings', () => {
     const s = new Stable(2, 3);
     expect(s.push(['a', null])).toEqual([null, null]);
     expect(s.push(['a', null])).toEqual(['a', null]);
-    // one odd frame changes nothing
-    expect(s.push(['b', null])).toEqual(['a', null]);
-    expect(s.push(['a', null])).toEqual(['a', null]);
-    // empty needs three frames
+    // another item: the old label goes at once, the new one comes when frames agree
+    expect(s.push(['b', null])).toEqual([null, null]);
+    expect(s.push(['b', null])).toEqual(['b', null]);
+    // a clear match is shown at once
+    expect(s.push(['c', null], [true, false])).toEqual(['c', null]);
+    // empty needs three frames (a flicker of "nothing" keeps the label)
     s.push([null, null]);
-    expect(s.push([null, null])).toEqual(['a', null]);
+    expect(s.push([null, null])).toEqual(['c', null]);
     expect(s.push([null, null])).toEqual([null, null]);
   });
 });

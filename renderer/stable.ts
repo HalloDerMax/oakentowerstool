@@ -23,6 +23,8 @@ export class Stable {
       const cur = this.shown[i] ?? null;
       if (now.id === cur) return;
       if (now.id === null ? now.n >= this.clear : now.n >= this.confirm || sure[i]) this.shown[i] = now.id;
+      // another item is coming: the old label goes at once (a wrong label is worse than none)
+      else if (now.id !== null && cur !== null) this.shown[i] = null;
     });
     this.shown.length = read.length;
     return Array.from(this.shown, (x) => x ?? null);
@@ -35,6 +37,11 @@ export class Stable {
       if (id && id !== cur && sure[i]) return id;
       return cur;
     });
+  }
+
+  /** a change is seen but not confirmed yet (look again soon) */
+  pending(): boolean {
+    return this.seen.some((s, i) => s && s.id !== (this.shown[i] ?? null));
   }
 
   reset(): void {

@@ -17,6 +17,7 @@ const {
   globalShortcut,
   ipcMain,
   Menu,
+  shell,
   nativeImage,
   net,
   protocol,
@@ -416,6 +417,18 @@ app.whenReady().then(() => {
   ipcMain.on('lock', (_e, on) => setLocked(!!on));
   ipcMain.on('hide', () => setVisible(false));
   ipcMain.on('quit', () => app.quit());
+  // a snapshot for checking the reading: the screen, the cut-outs and what was read, saved on this PC only
+  ipcMain.handle('snapshot', (_e, d) => {
+    const dir = path.join(app.getPath('userData'), 'snapshots', new Date().toISOString().replace(/[:.]/g, '-'));
+    fs.mkdirSync(dir, { recursive: true });
+    for (const [name, url] of Object.entries(d.files || {})) {
+      if (!/^[a-z0-9_-]{1,40}$/i.test(name) || typeof url !== 'string' || !url.startsWith('data:image/png;base64,')) continue;
+      fs.writeFileSync(path.join(dir, name + '.png'), Buffer.from(url.slice(22), 'base64'));
+    }
+    fs.writeFileSync(path.join(dir, 'read.json'), JSON.stringify(d.info || {}, null, 2));
+    shell.openPath(dir);
+    return dir;
+  });
 
   createPanel();
   createHints();

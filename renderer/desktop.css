@@ -827,7 +827,7 @@ html:has(.h-body),
     0 0 0 1px rgba(0, 0, 0, 0.7),
     inset 0 0 0 1px rgba(0, 0, 0, 0.5),
     inset 0 0 calc(var(--s) * 0.18) color-mix(in srgb, var(--c) 30%, transparent);
-  animation: h-pop 0.35s var(--ease) both;
+  animation: h-pop 0.15s ease-out both;
 }
 @keyframes h-pop {
   0% {
@@ -857,7 +857,7 @@ html:has(.h-body),
   text-align: center;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
   overflow-wrap: anywhere;
-  animation: h-pop 0.35s var(--ease) both;
+  animation: h-pop 0.15s ease-out both;
 }
 .h-rib b {
   color: var(--c);
@@ -868,8 +868,8 @@ html:has(.h-body),
 .h-mark.t-buy .h-frame {
   border-width: max(4px, calc(var(--s) * 0.04));
   animation:
-    h-pop 0.35s var(--ease) both,
-    h-glow 1.6s 0.35s ease-in-out infinite;
+    h-pop 0.15s ease-out both,
+    h-glow 1.6s 0.15s ease-in-out infinite;
 }
 @keyframes h-glow {
   50% {
@@ -955,7 +955,7 @@ html:has(.h-body),
   color: #fff;
   font: 700 max(10px, calc(var(--s) * 0.075)) / 1.2 var(--font);
   letter-spacing: 0.04em;
-  animation: h-pop 0.35s var(--ease) both;
+  animation: h-pop 0.15s ease-out both;
 }
 @media (prefers-reduced-motion: reduce) {
   .h-mark * {

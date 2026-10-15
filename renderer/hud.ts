@@ -192,3 +192,13 @@ export const PICK_BOXES: [number, number, number, number][] = [
   [1086, 340, 210, 207],
   [1438, 340, 210, 207],
 ];
+
+/** shop rows and tower from a mapping of reference pixels to the screen */
+export function layoutWith(at: (b: [number, number, number, number]) => Rect): Required<Pick<DesktopConfig, 'shop' | 'tower'>> {
+  return {
+    shop: REF_SHOP_ROWS.map((r) => ({ ...at(r.box), n: r.n })),
+    tower: { ...at(REF_TOWER_BOX), cols: 2, rows: 3 },
+  };
+}
+/** the top left tower cell at 1915×1079 (found by its frame), for mapping a snapped tower back to the layout */
+export const REF_CELL0 = { x: 138, y: 255, w: 163, h: 159 };
