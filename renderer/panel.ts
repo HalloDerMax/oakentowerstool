@@ -616,11 +616,13 @@ function coach(): void {
       : verdicts.map((v, i) =>
           v && places[i] ? { id: v.id, name: nameOf(v.id), tone: v.tone, badge: v.badge, why: v.why, rect: places[i]! } : null,
         );
+  // on the game only what matters for you and your build: buy, star, fits, take (nothing for the rest)
+  const shown = slots.map((x) => (x && (x.tone === 'skip' || x.tone === 'alt') ? null : x));
   // the labels above the game only change when something really changed
-  const key = JSON.stringify(slots);
+  const key = JSON.stringify(shown);
   if (key !== lastHints) {
     lastHints = key;
-    api?.sendHints({ slots });
+    api?.sendHints({ slots: shown });
   }
   paintCoach();
 }
