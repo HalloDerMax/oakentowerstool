@@ -109,7 +109,7 @@ function calibrationHtml(): string {
   const live = drag ? norm(drag) : null;
   const help =
     step === 'shop'
-      ? '<b>1 / 2 · Shop</b> Open a shop in the game. Drag <u>one box per shop row</u> around the item pictures, empty places included. Then set how many places each row has: the lines must split the items.'
+      ? '<b>Only for windowed mode.</b> In fullscreen or borderless the coach already knows where everything is: “Use auto layout”.<br><b>1 / 2 · Shop</b> Open a shop in the game. Drag <u>one box per shop row</u> around the item pictures, empty places included. Then set how many places each row has: the lines must split the items.'
       : step === 'tower'
         ? '<b>2 / 2 · Your tower</b> Drag a box around the item cells of your tower. Or skip it.'
         : '<b>Done?</b> Check the boxes: every item should sit in its own cell.';
@@ -134,6 +134,7 @@ function calibrationHtml(): string {
     (step === 'tower' ? '<button type="button" data-h="skip">Skip tower</button><button type="button" data-h="back">‹ Back</button>' : '') +
     (step === 'done' ? '<button type="button" class="pri" data-h="save">Save</button>' : '') +
     (step !== 'shop' || shopRows.length ? '<button type="button" data-h="redo">Start again</button>' : '') +
+    '<button type="button" data-h="auto" title="Fullscreen / borderless: the coach knows where everything is">Use auto layout</button>' +
     '<button type="button" data-h="cancel">Cancel</button></div>' +
     '<small>Esc cancels · Ctrl+Shift+K also closes this</small></div></div>'
   );
@@ -215,6 +216,10 @@ root.addEventListener('click', (e) => {
     step = 'shop';
   } else if (k === 'save') {
     void api?.set({ shop: shopRows, tower: towerBox ?? undefined }).then(() => api.calibrated());
+    return;
+  } else if (k === 'auto') {
+    // forget the boxes: the known layout of the game is used (fullscreen / borderless)
+    void api?.set({ shop: undefined, tower: undefined }).then(() => api.calibrated());
     return;
   } else if (k === 'cancel') return api?.calibrated();
   render();

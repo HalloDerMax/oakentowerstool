@@ -4,7 +4,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PERKS } from '../shared/src/data/perks';
 import { slug } from '../shared/src/data/slug';
 import {
+  autoLayout,
   benchWindows,
+  gameArea,
   HUD_FIELDS,
   inkOnPaper,
   parseHud,
@@ -121,4 +123,20 @@ describe('reading the HUD', () => {
       .filter(Boolean);
     expect([...new Set(seen)]).toEqual(['bomb_wagon']);
   }, 60000);
+});
+
+describe('no calibration needed in fullscreen', () => {
+  it('uses the known layout on a 16:9 display', () => {
+    const l = autoLayout({ width: 1920, height: 1080 });
+    expect(l.shop).toHaveLength(2);
+    expect(l.shop[0]!.n).toBe(4);
+    expect(l.shop[1]!.n).toBe(3);
+    expect(l.tower.x * 1920).toBeCloseTo(135 * (1920 / REF_W), 0);
+  });
+  it('centres the 16:9 game on an ultrawide display (black bars left and right)', () => {
+    const g = gameArea({ width: 3440, height: 1440 });
+    expect(g.w).toBeCloseTo(2560 / 3440, 3);
+    expect(g.x).toBeCloseTo(440 / 3440, 3);
+    expect(g.y).toBe(0);
+  });
 });

@@ -24,10 +24,10 @@ import { rateSuggestions, type Rated } from '../shared/src/ui/obtainview';
 import { mountOverlay, type OverlayView } from '../shared/src/ui/overlay';
 import { runGrow, runSuggest } from '../shared/src/ui/simclient';
 import type { OurBuild } from '../shared/src/ui/buildguide';
-import type { DesktopApi, DesktopState, HintSlot, Rect } from './bridge';
+import type { DesktopApi, DesktopConfig, DesktopState, HintSlot, Rect } from './bridge';
 import { grab, stop as stopStream } from './capture';
 import { choosePath, decide, judgeShop, mainPacks, pathName, paths, type HudInfo, type Move, type Path, type Verdict } from './coach';
-import { benchWindows, HUD_FIELDS, parseHud, PERK_BOX, placeOnScreen, type HudKey } from './hud';
+import { autoLayout, benchWindows, HUD_FIELDS, parseHud, PERK_BOX, placeOnScreen, type HudKey } from './hud';
 import type { Facing, Img, Match } from './recognize';
 import type { Group, RecRequest, RecResponse } from './recognize.worker';
 import { Stable } from './stable';
@@ -259,13 +259,20 @@ let tick = 0;
 
 /** a little more than the box, so an item that is not perfectly centred is still whole */
 const grow = (r: Rect, k = 0.06): Rect => ({ x: r.x - r.w * k, y: r.y - r.h * k, w: r.w * (1 + 2 * k), h: r.h * (1 + 2 * k) });
+/** calibrated boxes, or the game's known layout (fullscreen / borderless needs no calibration) */
+function layout(): DesktopConfig {
+  const cfg = state?.config ?? {};
+  if (cfg.shop?.length || cfg.tower) return cfg;
+  return { ...cfg, ...autoLayout(state?.display) };
+}
+const calibrated = () => !!(state?.config.shop?.length || state?.config.tower);
 function shopPlaces(): Rect[] {
-  return (state?.config.shop ?? []).flatMap((s) =>
+  return (layout().shop ?? []).flatMap((s) =>
     Array.from({ length: s.n }, (_, i) => ({ x: s.x + (s.w / s.n) * i, y: s.y, w: s.w / s.n, h: s.h })),
   );
 }
 function towerCells(): Rect[] {
-  const t = state?.config.tower;
+  const t = layout().tower;
   if (!t) return [];
   return Array.from({ length: t.cols * t.rows }, (_, k) => ({
     x: t.x + (t.w / t.cols) * (k % t.cols),
@@ -280,15 +287,11 @@ let scanning = false;
 async function scan(): Promise<void> {
   if (!api || scanning || !state?.config.scan) return;
   const cfg = state.config;
-  if (!cfg.shop?.length && !cfg.tower) {
-    scanMsg = 'Not calibrated: Ctrl+Shift+K';
-    return paintStatus();
-  }
   scanning = true;
   tick++;
   try {
     await sendPictures();
-    const at = placeOnScreen(cfg);
+    const at = placeOnScreen(layout(), state.display);
     const places = shopPlaces(),
       cells = towerCells(),
       windows = benchWindows().map(at);
@@ -357,9 +360,7 @@ async function scan(): Promise<void> {
     const found = shop.filter(Boolean).length;
     scanMsg = found
       ? found + ' in shop' + (bench.length ? ' · ' + bench.length + ' on bench' : '')
-      : cfg.shop?.length
-        ? 'Shop closed'
-        : 'Reading tower';
+      : 'Shop closed' + (calibrated() ? '' : ' · auto layout');
   } catch (e) {
     scanMsg = 'Screen not readable: ' + (e instanceof Error ? e.message : String(e));
     stopStream();
@@ -424,14 +425,7 @@ function put(el: HTMLElement, html: string): void {
 function paintStatus(): void {
   const s = state;
   const on = !!s?.config.scan;
-  put(
-    $('#d-status'),
-    '<i class="d-dot ' +
-      (on && (s?.config.shop?.length || s?.config.tower) ? 'on' : '') +
-      '"></i><span>' +
-      esc(on ? scanMsg : 'Scan paused') +
-      '</span>',
-  );
+  put($('#d-status'), '<i class="d-dot ' + (on ? 'on' : '') + '"></i><span>' + esc(on ? scanMsg : 'Scan paused') + '</span>');
   $('#d-scan').textContent = on ? 'Pause scan' : 'Scan';
   $('#d-lock').textContent = s?.locked ? 'Locked' : 'Lock';
   $<HTMLInputElement>('#d-auto').checked = !!s?.config.autoTower;

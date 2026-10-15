@@ -2,7 +2,7 @@
  *
  * Positions are known from the game's layout at 1915×1079 (REF). The calibrated shop rows and tower tell where the
  * game sits on screen and how big it is, so the same places are found at any window size. Without a calibration
- * the game is assumed to fill the display.
+ * the game is assumed to fill the display (fullscreen / borderless, 16:9 centred): see autoLayout.
  */
 import type { DesktopConfig, Rect } from './bridge';
 
@@ -40,13 +40,44 @@ export const HUD_FIELDS: HudField[] = [
 export const PERK_BOX: [number, number, number, number] = [6, 243, 56, 56];
 
 /** reference pixels → fractions of the display, using the calibration when there is one */
-export function placeOnScreen(cfg: DesktopConfig): (b: [number, number, number, number]) => Rect {
+/** the game's own layout (from real screens): two offset shop rows and the 2×3 tower */
+export const REF_SHOP_ROWS: { box: [number, number, number, number]; n: number }[] = [
+  { box: [795, 225, 760, 140], n: 4 },
+  { box: [837, 500, 675, 140], n: 3 },
+];
+export const REF_TOWER_BOX: [number, number, number, number] = [135, 250, 365, 560];
+
+/** where the game sits on a display when it runs fullscreen / borderless: a 16:9 picture, centred (black bars on
+ * ultrawide or 16:10 screens). Fractions of the display. */
+export function gameArea(display?: { width: number; height: number }): Rect {
+  const W = display?.width ?? 16,
+    H = display?.height ?? 9;
+  const gw = Math.min(W, (H * 16) / 9),
+    gh = (gw * 9) / 16;
+  return { x: (W - gw) / 2 / W, y: (H - gh) / 2 / H, w: gw / W, h: gh / H };
+}
+
+/** shop rows and tower without a calibration: the known layout in the game area */
+export function autoLayout(display?: { width: number; height: number }): Required<Pick<DesktopConfig, 'shop' | 'tower'>> {
+  const at = placeOnScreen({}, display);
+  return {
+    shop: REF_SHOP_ROWS.map((r) => ({ ...at(r.box), n: r.n })),
+    tower: { ...at(REF_TOWER_BOX), cols: 2, rows: 3 },
+  };
+}
+
+export function placeOnScreen(
+  cfg: DesktopConfig,
+  display?: { width: number; height: number },
+): (b: [number, number, number, number]) => Rect {
   const t = cfg.tower,
     r = cfg.shop?.[0];
-  let sx = 1 / REF_W,
-    sy = 1 / REF_H,
-    ox = 0,
-    oy = 0;
+  // no calibration: the game fills the display as a centred 16:9 picture
+  const g = gameArea(display);
+  let sx = g.w / REF_W,
+    sy = g.h / REF_H,
+    ox = g.x,
+    oy = g.y;
   if (t && r) {
     // the widest spans we know: tower left → shop row right, shop row top → tower bottom
     sx = (r.x + r.w - t.x) / (REF_ROW1.x + REF_ROW1.w - REF_TOWER.x);

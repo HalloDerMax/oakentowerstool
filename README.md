@@ -26,7 +26,8 @@ Das Tool ist ein **Trainer**: Es liest dein Spiel mit und sagt dir klar, was du 
 ## Einrichten
 
 1. `OakenTowerOverlay-x.y.z.exe` starten (keine Installation). Das Spiel im Fenster- oder randlosen Modus spielen.
-2. Einen Shop öffnen, **Strg+Umschalt+K**: pro Shop-Reihe einen Rahmen ziehen, dann den Turm. Speichern.
+2. Fertig. Im **Vollbild oder randlosen Fenster** kennt das Tool die Positionen von Shop, Turm, Bank und Anzeigen selbst (auch auf Ultrawide- und 16:10-Bildschirmen, wo das Spiel mittig sitzt).
+3. Nur im **Fenstermodus**: einmal **Strg+Umschalt+K**, pro Shop-Reihe einen Rahmen ziehen, dann den Turm, speichern. „Use auto layout“ schaltet zurück.
 
 ![Kalibrieren](docs/screenshots/calibrate.png)
 
